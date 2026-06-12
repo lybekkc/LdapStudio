@@ -75,7 +75,6 @@
 | Platform | Format |
 |----------|--------|
 | macOS (Apple Silicon) | `.dmg` (aarch64) |
-| macOS (Intel)         | `.dmg` (x86_64)  |
 | Windows               | `.msi` / `.exe`  |
 | Linux                 | `.AppImage` / `.deb` |
 
