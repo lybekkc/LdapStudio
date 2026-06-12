@@ -11,6 +11,7 @@ import * as XLSX from "xlsx";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
 import type { LdapEntry } from "../types";
+import DnPickerButton from "./DnPickerButton";
 
 const { Text } = Typography;
 
@@ -311,7 +312,10 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
           }}
         >
           <Form.Item name="baseDn" label="Base DN" rules={[{ required: true }]}>
-            <Input style={{ fontFamily: "monospace", fontSize: 12 }} />
+            <Input
+              style={{ fontFamily: "monospace", fontSize: 12 }}
+              addonAfter={<DnPickerButton onSelect={dn => form.setFieldValue("baseDn", dn)} />}
+            />
           </Form.Item>
 
           <Space style={{ width: "100%" }} size={8}>
