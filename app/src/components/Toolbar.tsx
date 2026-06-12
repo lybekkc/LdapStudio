@@ -15,6 +15,7 @@ import CsvExportDialog from "./CsvExportDialog";
 import UndoHistoryDrawer from "./UndoHistoryDrawer";
 import ShortcutsModal from "./ShortcutsModal";
 import type { AppTab } from "../types";
+import { LdapIcon } from "./LdapIcon";
 
 const { Text } = Typography;
 
@@ -112,9 +113,12 @@ const Toolbar: React.FC = () => {
       }}
     >
       {/* Logo */}
-      <Text strong style={{ color: "#fff", fontSize: 15, whiteSpace: "nowrap" }}>
-        🗂 LDAP Studio
-      </Text>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>
+        <LdapIcon size={22} style={{ color: "#38bdf8", flexShrink: 0 }} />
+        <Text strong style={{ color: "#fff", fontSize: 15 }}>
+          LDAP Studio
+        </Text>
+      </div>
 
       <div style={{ width: 1, height: 24, background: "#ffffff30" }} />
 
