@@ -18,6 +18,7 @@ export function useKeyboardShortcuts() {
     connected, activeTab, setActiveTab,
     undoHistory, performUndo, setHistoryDrawerOpen,
     selectedEntry, copyEntryToClipboard, clipboardEntry,
+    refreshDitTree,
   } = useAppStore();
 
   useEffect(() => {
@@ -59,9 +60,14 @@ export function useKeyboardShortcuts() {
         window.dispatchEvent(new CustomEvent('show-shortcuts'));
         return;
       }
+      if (e.key === 'F5' && connected) {
+        e.preventDefault();
+        refreshDitTree();
+        return;
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [connected, activeTab, undoHistory, performUndo, setActiveTab, setHistoryDrawerOpen,
-      selectedEntry, copyEntryToClipboard, clipboardEntry]);
+      selectedEntry, copyEntryToClipboard, clipboardEntry, refreshDitTree]);
 }

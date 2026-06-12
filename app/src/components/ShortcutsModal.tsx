@@ -15,6 +15,7 @@ const shortcuts = [
   { category: "Navigation",    key: `${mod}+1`,      action: "Switch to Browser tab"    },
   { category: "Navigation",    key: `${mod}+2`,      action: "Switch to Search tab"     },
   { category: "Navigation",    key: `${mod}+3`,      action: "Switch to Schema tab"     },
+  { category: "Browser",       key: `F5`,            action: "Refresh DIT tree"         },
   { category: "History",       key: `${mod}+Z`,      action: "Undo last operation"      },
   { category: "History",       key: `${mod}+H`,      action: "Open operation history"   },
   { category: "Entry",         key: `${mod}+E`,      action: "Edit selected entry"      },
@@ -27,6 +28,7 @@ const shortcuts = [
 
 const CATEGORY_COLORS: Record<string, string> = {
   Navigation: "blue",
+  Browser:    "cyan",
   History:    "purple",
   Entry:      "orange",
 };

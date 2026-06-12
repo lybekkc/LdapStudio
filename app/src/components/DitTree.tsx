@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Tree, Spin, Empty, Tag, Tooltip, Switch, message } from "antd";
 import type { TreeDataNode as DataNode } from "antd";
-import { DatabaseOutlined, FolderOutlined, UserOutlined, GroupOutlined, PlusCircleOutlined, TagsOutlined, PlusOutlined } from "@ant-design/icons";
+import { DatabaseOutlined, FolderOutlined, UserOutlined, GroupOutlined, PlusCircleOutlined, TagsOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import type { DitNode } from "../types";
 import NewEntryDrawer from "./NewEntryDrawer";
@@ -58,7 +58,7 @@ function makeMoreNode(parentDn: string, count: number): DataNode {
 const DitTree: React.FC = () => {
   const { serverInfo, loadChildren, loadMoreChildren, selectEntry, selectedDn, pageSize,
           showOcBrowser, setShowOcBrowser, lastDeletedDn, activeProfile, writeUnlocked,
-          clipboardEntry, ditTreeVersion } = useAppStore();
+          clipboardEntry, ditTreeVersion, refreshDitTree } = useAppStore();
   const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loading] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
@@ -99,19 +99,39 @@ const DitTree: React.FC = () => {
     })));
   }, [serverInfo, ditTreeVersion]);  // ← also react to manual refresh
 
-  // Remove deleted node from tree and refresh its parent
+  // Remove deleted node and automatically reload its parent's children
   useEffect(() => {
     if (!lastDeletedDn) return;
     setTreeData(prev => removeNode(prev, lastDeletedDn));
     const parentDn = lastDeletedDn.includes(",")
       ? lastDeletedDn.slice(lastDeletedDn.indexOf(",") + 1)
       : "";
-    if (parentDn) {
-      nodeMap.current.delete(parentDn);
-      loadingDns.current.delete(parentDn);
-      setTreeData(prev => clearChildren(prev, parentDn));
-    }
-  }, [lastDeletedDn]);
+    if (!parentDn) return;
+
+    // Clear from cache so a fresh load is triggered
+    nodeMap.current.delete(parentDn);
+    loadingDns.current.delete(parentDn);
+
+    // Immediately reload the parent's children so the tree stays usable
+    loadChildren(parentDn)
+      .then((page) => {
+        nodeMap.current.set(parentDn, { nodes: page.nodes, hasMore: page.hasMore });
+        const childNodes: DataNode[] = page.nodes.map((n) => ({
+          key:    n.dn,
+          title:  <DitNodeTitle node={n} />,
+          icon:   iconForObjectClasses(n.objectClasses),
+          isLeaf: !n.hasChildren,
+        }));
+        if (page.hasMore || page.nodes.length >= pageSize) {
+          childNodes.push(makeMoreNode(parentDn, childNodes.length));
+        }
+        setTreeData(prev => updateTree(prev, parentDn, childNodes));
+      })
+      .catch(() => {
+        // Fallback: just clear children so user can re-expand manually
+        setTreeData(prev => clearChildren(prev, parentDn));
+      });
+  }, [lastDeletedDn, loadChildren, pageSize]);
 
   // Listen for paste-entry event (fired by ⌘V keyboard shortcut)
   useEffect(() => {
@@ -197,6 +217,12 @@ const DitTree: React.FC = () => {
             <Switch size="small" checked={showOcBrowser} onChange={setShowOcBrowser} />
           </Tooltip>
           <div style={{ flex: 1 }} />
+          <Tooltip title="Oppdater tre (F5)">
+            <ReloadOutlined
+              style={{ color: "#888", cursor: "pointer", fontSize: 13, marginRight: 4 }}
+              onClick={refreshDitTree}
+            />
+          </Tooltip>
           <Tooltip title={isReadOnly ? "Read-only — lås opp for å opprette entries" : `Ny entry under: ${newEntryParent}`}>
             <PlusOutlined
               style={{ color: isReadOnly ? "#aaa" : "#1677ff", cursor: isReadOnly ? "not-allowed" : "pointer", fontSize: 14 }}
