@@ -1,0 +1,25 @@
+[package]
+name    = "ldap-studio-app"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ldap_studio_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+ldap-core          = { path = "../../crates/ldap-core" }
+ldap3              = { version = "0.11", default-features = false, features = ["tls-rustls"] }
+tauri              = { version = "2", features = [] }
+tauri-plugin-store = "2"
+tokio              = { workspace = true }
+tokio-util         = "0.7"
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+thiserror          = { workspace = true }
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
