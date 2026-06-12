@@ -7,6 +7,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- Undo/redo history per connection profile — stored locally in `undo-{profileId}.json`, survives restarts
+  - Tracks: modify, delete, create, rename/move and schema changes
+  - Password attributes are excluded from snapshots
+  - History panel accessible from toolbar (clock icon with badge count)
+- Rename / Move entry (LDAP ModifyDN) — change RDN and/or move to a new parent DN
+  - Live DN preview in modal
+  - DN browser button to pick new parent visually
+  - Undo support
+- Schema undo support — ObjectClass and AttributeType create/modify/delete are now tracked in undo history
+
 ---
 
 ## [0.2.0] - 2026-06-12
