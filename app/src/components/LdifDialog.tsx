@@ -7,6 +7,8 @@ import {
   DownloadOutlined, UploadOutlined, InboxOutlined,
   CheckCircleOutlined, CloseCircleOutlined,
 } from "@ant-design/icons";
+import { save as dialogSave, open as dialogOpen } from "@tauri-apps/plugin-dialog";
+import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
 import type { LdifImportResult } from "../types";
@@ -16,18 +18,6 @@ const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Dragger } = Upload;
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/** Trigger a browser-side text file download */
-function downloadText(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement("a");
-  a.href     = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 // ─── Export Dialog ────────────────────────────────────────────────────────────
 
@@ -47,7 +37,7 @@ interface ExportForm {
 }
 
 export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initialBaseDn }) => {
-  const { serverInfo, selectedDn } = useAppStore();
+  const { serverInfo, selectedDn, lastExportDir, setLastExportDir } = useAppStore();
   const [form] = Form.useForm<ExportForm>();
   const [exporting, setExporting] = useState(false);
   const [preview, setPreview]     = useState<string | null>(null);
@@ -72,15 +62,23 @@ export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initial
       setExportedCount(count);
 
       if (download) {
-        const filename = `export_${vals.baseDn.replace(/[^a-z0-9]/gi, "_")}.ldif`;
-        downloadText(filename, ldif);
-        message.success(`${count} entries eksportert`);
+        const suggestedName = `export_${vals.baseDn.replace(/[^a-z0-9]/gi, "_")}.ldif`;
+        const filePath = await dialogSave({
+          title: "Save LDIF export",
+          defaultPath: lastExportDir ? `${lastExportDir}/${suggestedName}` : suggestedName,
+          filters: [{ name: "LDIF", extensions: ["ldif", "ldf", "txt"] }],
+        });
+        if (!filePath) return; // user cancelled
+        await writeTextFile(filePath, ldif);
+        // Persist directory for next time
+        const dir = filePath.substring(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+        await setLastExportDir(dir);
+        message.success(`${count} entries exported`);
       } else {
-        // Preview mode — show first 50 lines
         setPreview(lines.slice(0, 80).join("\n") + (lines.length > 80 ? "\n..." : ""));
       }
     } catch (e) {
-      message.error(`Eksport feilet: ${e}`);
+      message.error(`Export failed: ${e}`);
     } finally {
       setExporting(false);
     }
@@ -197,6 +195,7 @@ interface ImportProps {
 }
 
 export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImported }) => {
+  const { lastImportDir, setLastImportDir } = useAppStore();
   const [ldifContent,       setLdifContent]       = useState("");
   const [dryRun,            setDryRun]            = useState(true);
   const [continueOnError,   setContinueOnError]   = useState(true);
@@ -212,7 +211,24 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
       setResult(null);
     };
     reader.readAsText(file, "utf-8");
-    return false; // prevent default upload
+    return false;
+  };
+
+  const handleBrowseFile = async () => {
+    const filePath = await dialogOpen({
+      title: "Open LDIF file",
+      defaultPath: lastImportDir || undefined,
+      multiple: false,
+      filters: [{ name: "LDIF", extensions: ["ldif", "ldf", "txt"] }],
+    });
+    if (!filePath || Array.isArray(filePath)) return;
+    const content = await readTextFile(filePath);
+    const name = filePath.split(/[/\\]/).pop() ?? filePath;
+    setLdifContent(content);
+    setFileName(name);
+    setResult(null);
+    const dir = filePath.substring(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+    await setLastImportDir(dir);
   };
 
   const handleImport = async () => {
@@ -273,18 +289,27 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
         items={[
           {
             key: "file",
-            label: "Fil",
+            label: "File",
             children: (
-              <Dragger
-                accept=".ldif,.ldf,text/plain"
-                showUploadList={false}
-                beforeUpload={handleFile}
-                style={{ marginBottom: 8 }}
-              >
-                <p className="ant-upload-drag-icon"><InboxOutlined /></p>
-                <p>Dra og slipp en .ldif-fil hit, eller klikk for å velge</p>
-                {fileName && <Tag color="blue">{fileName}</Tag>}
-              </Dragger>
+              <div>
+                <Button
+                  icon={<UploadOutlined />}
+                  style={{ marginBottom: 8 }}
+                  onClick={handleBrowseFile}
+                >
+                  Browse for LDIF file…
+                </Button>
+                {fileName && <Tag color="blue" style={{ marginLeft: 8 }}>{fileName}</Tag>}
+                <Dragger
+                  accept=".ldif,.ldf,text/plain"
+                  showUploadList={false}
+                  beforeUpload={handleFile}
+                  style={{ marginTop: 4 }}
+                >
+                  <p className="ant-upload-drag-icon"><InboxOutlined /></p>
+                  <p>Or drag & drop a .ldif file here</p>
+                </Dragger>
+              </div>
             ),
           },
           {

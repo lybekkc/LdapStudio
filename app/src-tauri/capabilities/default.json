@@ -10,7 +10,13 @@
     "store:allow-delete",
     "store:allow-keys",
     "store:allow-load",
-    "store:allow-save"
+    "store:allow-save",
+    "dialog:allow-save",
+    "dialog:allow-open",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    "fs:default"
   ]
 }
-

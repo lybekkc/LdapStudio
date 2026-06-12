@@ -8,6 +8,8 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import * as XLSX from "xlsx";
+import { save as dialogSave } from "@tauri-apps/plugin-dialog";
+import { writeTextFile, writeFile } from "@tauri-apps/plugin-fs";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
 import type { LdapEntry } from "../types";
@@ -17,14 +19,6 @@ const { Text } = Typography;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement("a");
-  a.href    = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 /** Collect all unique attribute names across all entries, sorted. */
 function collectAttrNames(entries: LdapEntry[]): string[] {
@@ -188,7 +182,7 @@ const DEFAULT_PRIORITY_COLS = [
 ];
 
 const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEntries }) => {
-  const { serverInfo, selectedDn } = useAppStore();
+  const { serverInfo, selectedDn, lastExportDir, setLastExportDir } = useAppStore();
   const [form] = Form.useForm<ExportForm>();
 
   const [fetching,      setFetching]      = useState(false);
@@ -229,26 +223,37 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
     }
   };
 
-  const handleDownload = (format: "csv" | "xlsx") => {
+  const handleDownload = async (format: "csv" | "xlsx") => {
     if (!fetchedData || selectedCols.length === 0) {
-      message.warning("Ingen kolonner valgt");
+      message.warning("No columns selected");
       return;
     }
     const vals = form.getFieldsValue();
     const grid = buildGrid(fetchedData, selectedCols, vals.includeDn, vals.multiDelim || ";");
-    const filename = `export_${(vals.baseDn || "ldap").replace(/[^a-z0-9]/gi, "_")}`;
+    const suggestedName = `export_${(vals.baseDn || "ldap").replace(/[^a-z0-9]/gi, "_")}`;
 
     if (format === "csv") {
-      const csv  = generateCsv(grid);
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }); // BOM for Excel
-      downloadBlob(blob, `${filename}.csv`);
+      const filePath = await dialogSave({
+        title: "Save CSV export",
+        defaultPath: lastExportDir ? `${lastExportDir}/${suggestedName}.csv` : `${suggestedName}.csv`,
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      });
+      if (!filePath) return;
+      const csv = generateCsv(grid);
+      await writeTextFile(filePath, "\ufeff" + csv); // BOM for Excel
+      const dir = filePath.substring(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+      await setLastExportDir(dir);
     } else {
-      const ws   = XLSX.utils.aoa_to_sheet(grid);
-      // Auto-width columns
+      const filePath = await dialogSave({
+        title: "Save Excel export",
+        defaultPath: lastExportDir ? `${lastExportDir}/${suggestedName}.xlsx` : `${suggestedName}.xlsx`,
+        filters: [{ name: "Excel", extensions: ["xlsx"] }],
+      });
+      if (!filePath) return;
+      const ws = XLSX.utils.aoa_to_sheet(grid);
       const colWidths = selectedCols.map(c => ({ wch: Math.max(c.length, 12) }));
       if (vals.includeDn) colWidths.unshift({ wch: 60 });
       ws["!cols"] = colWidths;
-      // Bold header row
       const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
       for (let c = range.s.c; c <= range.e.c; c++) {
         const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
@@ -256,10 +261,13 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
       }
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "LDAP Export");
-      XLSX.writeFile(wb, `${filename}.xlsx`);
+      const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+      await writeFile(filePath, new Uint8Array(buf));
+      const dir = filePath.substring(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+      await setLastExportDir(dir);
     }
 
-    message.success(`${fetchedData.length} entries eksportert`);
+    message.success(`${fetchedData.length} entries exported`);
   };
 
   const handleClose = () => {

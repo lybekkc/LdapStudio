@@ -14,7 +14,9 @@ tauri-build = { version = "2", features = [] }
 ldap-core          = { path = "../../crates/ldap-core" }
 ldap3              = { version = "0.11", default-features = false, features = ["tls-rustls"] }
 tauri              = { version = "2", features = [] }
-tauri-plugin-store = "2"
+tauri-plugin-store  = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs     = "2"
 tokio              = { workspace = true }
 tokio-util         = "0.7"
 serde              = { workspace = true }
