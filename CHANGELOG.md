@@ -9,6 +9,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.4.1] - 2026-06-12
+
+### Fixed
+- White screen crash when clicking certain DIT tree nodes — React hooks were called after early returns in `EntryDetails`, violating Rules of Hooks
+
+### Changed
+- Custom SVG app icon (LDAP tree + magnifying glass with blue/indigo gradient) replaces default Tauri icon on all platforms
+- Toolbar logo updated to use the same SVG icon component
+
+---
+
 ## [0.4.0] - 2026-06-12
 
 ### Added
