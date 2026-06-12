@@ -43,6 +43,8 @@ const Toolbar: React.FC = () => {
     setHistoryDrawerOpen,
     clipboardEntry,
     clearEntryClipboard,
+    refreshDitTree,
+    setActiveBaseDn,
   } = useAppStore();
 
   const [settingsOpen,   setSettingsOpen]   = useState(false);
@@ -92,8 +94,20 @@ const Toolbar: React.FC = () => {
       <div><Text type="secondary">SASL:</Text> {serverInfo.supportedSaslMechanisms.join(", ") || "—"}</div>
       <div><Text type="secondary">Naming contexts:</Text></div>
       {serverInfo.namingContexts.map((nc) => (
-        <div key={nc} style={{ paddingLeft: 12 }}>
-          <Text code style={{ fontSize: 11 }}>{nc}</Text>
+        <div key={nc} style={{ paddingLeft: 12, marginTop: 2 }}>
+          <Text
+            code
+            style={{
+              fontSize: 11,
+              cursor: "pointer",
+              background: nc === serverInfo.activeBaseDn ? "#1677ff22" : undefined,
+              borderColor: nc === serverInfo.activeBaseDn ? "#1677ff" : undefined,
+            }}
+            onClick={() => { if (nc !== serverInfo.activeBaseDn) setActiveBaseDn(nc); }}
+            title={nc === serverInfo.activeBaseDn ? "Aktiv base DN" : "Klikk for å bytte til denne"}
+          >
+            {nc === serverInfo.activeBaseDn ? "▶ " : ""}{nc}
+          </Text>
         </div>
       ))}
     </div>
@@ -387,7 +401,7 @@ const Toolbar: React.FC = () => {
 
     {/* LDIF dialogs */}
     <LdifExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
-    <LdifImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+    <LdifImportDialog open={importOpen} onClose={() => setImportOpen(false)} onImported={refreshDitTree} />
     <CsvExportDialog  open={csvExportOpen} onClose={() => setCsvExportOpen(false)} />
     <UndoHistoryDrawer open={historyDrawerOpen} onClose={() => setHistoryDrawerOpen(false)} />
     <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

@@ -168,6 +168,9 @@ interface AppStore {
   selectedEntry: LdapEntry | null;
   entryLoading: boolean;
   lastDeletedDn: string | null;
+  /** Incremented every time the tree should fully reload from the server */
+  ditTreeVersion: number;
+  refreshDitTree: () => void;
 
   // ─── Search ──────────────────────────────────────────────────────────────
   searchResults: LdapEntry[];
@@ -254,6 +257,8 @@ interface AppStore {
   clipboardEntry: ClipboardEntry | null;
   copyEntryToClipboard: (entry: LdapEntry) => void;
   clearEntryClipboard: () => void;
+  /** Switch the active base DN without reconnecting */
+  setActiveBaseDn: (dn: string) => Promise<void>;
 }
 
 // ─── Store implementation ─────────────────────────────────────────────────────
@@ -277,6 +282,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   selectedEntry: null,
   entryLoading: false,
   lastDeletedDn: null,
+  ditTreeVersion: 0,
 
   searchResults: [],
   searchLoading: false,
@@ -453,6 +459,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   stopKeepalive: () => {
     clearKeepalive();
   },
+
+  refreshDitTree: () => set(s => ({ ditTreeVersion: s.ditTreeVersion + 1 })),
 
   // ─── DIT ──────────────────────────────────────────────────────────────────
   loadChildren: async (dn) => {
@@ -825,6 +833,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   clearEntryClipboard: () => set({ clipboardEntry: null }),
+
+  setActiveBaseDn: async (dn) => {
+    await api.setActiveBaseDn(dn);
+    set((s) => ({
+      serverInfo: s.serverInfo ? { ...s.serverInfo, activeBaseDn: dn } : s.serverInfo,
+      // Reset DIT tree and search state so they reload under the new base
+      ditTreeVersion: s.ditTreeVersion + 1,
+      selectedDn: null,
+      selectedEntry: null,
+    }));
+  },
 
   setPageSize: async (size) => {
     set({ pageSize: size });

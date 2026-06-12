@@ -7,6 +7,7 @@ import type {
 export const connect    = (profile: ConnectionProfile) => invoke<ServerInfo>("connect", { profile });
 export const disconnect = () => invoke<void>("disconnect");
 export const ping       = () => invoke<boolean>("ping");
+export const setActiveBaseDn = (dn: string) => invoke<void>("set_active_base_dn", { dn });
 
 export const listChildren     = (dn: string) => invoke<ChildrenPage>("list_children", { dn });
 export const listChildrenMore = (dn: string) => invoke<ChildrenPage>("list_children_more", { dn });

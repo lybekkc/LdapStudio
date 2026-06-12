@@ -58,9 +58,9 @@ function makeMoreNode(parentDn: string, count: number): DataNode {
 const DitTree: React.FC = () => {
   const { serverInfo, loadChildren, loadMoreChildren, selectEntry, selectedDn, pageSize,
           showOcBrowser, setShowOcBrowser, lastDeletedDn, activeProfile, writeUnlocked,
-          clipboardEntry } = useAppStore();
+          clipboardEntry, ditTreeVersion } = useAppStore();
   const [treeData, setTreeData] = useState<DataNode[]>([]);
-  const [loading, setLoading]   = useState(false);
+  const [loading] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
   const [pasteDrawerOpen, setPasteDrawerOpen] = useState(false);
 
@@ -71,25 +71,33 @@ const DitTree: React.FC = () => {
   // Guard against duplicate onLoadData calls (React StrictMode fires effects twice in dev)
   const loadingDns = useRef<Set<string>>(new Set());
 
-  // Build root node when connection changes
+  // Build root nodes when connection changes — show all naming contexts as roots
   useEffect(() => {
-    if (!serverInfo?.activeBaseDn) return;
+    if (!serverInfo) return;
     nodeMap.current.clear();
     loadingDns.current.clear();
-    const baseDn = serverInfo.activeBaseDn;
-    setLoading(true);
-    setTreeData([{
-      key:    baseDn,
+
+    // Prefer the full namingContexts list; fall back to activeBaseDn if list is empty
+    const roots: string[] = serverInfo.namingContexts.length > 0
+      ? serverInfo.namingContexts
+      : serverInfo.activeBaseDn ? [serverInfo.activeBaseDn] : [];
+
+    if (roots.length === 0) return;
+
+    setTreeData(roots.map((nc) => ({
+      key:    nc,
       title:  (
-        <Tooltip title={`Base DN: ${baseDn}`} placement="right">
-          <span>{baseDn} <Tag color="green" style={{ fontSize: 10 }}>base</Tag></span>
+        <Tooltip title={`Naming context: ${nc}`} placement="right">
+          <span>
+            {nc}
+            <Tag color="green" style={{ fontSize: 10, marginLeft: 6 }}>root</Tag>
+          </span>
         </Tooltip>
       ),
       icon:   <DatabaseOutlined />,
       isLeaf: false,
-    }]);
-    setLoading(false);
-  }, [serverInfo]);
+    })));
+  }, [serverInfo, ditTreeVersion]);  // ← also react to manual refresh
 
   // Remove deleted node from tree and refresh its parent
   useEffect(() => {

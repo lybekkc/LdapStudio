@@ -90,6 +90,8 @@ impl LdapClient {
             "*", "+",
             "vendorName", "vendorVersion",
             "namingContexts", "supportedLDAPVersion", "supportedSASLMechanisms",
+            // Active Directory uses defaultNamingContext; some servers use lowercase variants
+            "defaultNamingContext", "rootDomainNamingContext",
         ];
 
         let (rs, _res) = ldap
@@ -107,22 +109,50 @@ impl LdapClient {
 
         if let Some(raw) = rs.into_iter().next() {
             let entry = SearchEntry::construct(raw);
-            naming_contexts = entry.attrs.get("namingContexts")
-                .cloned().unwrap_or_default();
-            vendor_name = entry.attrs.get("vendorName")
-                .and_then(|v| v.first()).cloned();
-            vendor_version = entry.attrs.get("vendorVersion")
-                .and_then(|v| v.first()).cloned();
-            supported_versions = entry.attrs.get("supportedLDAPVersion")
-                .cloned().unwrap_or_default();
-            supported_sasl = entry.attrs.get("supportedSASLMechanisms")
-                .cloned().unwrap_or_default();
+
+            // LDAP attribute names are case-insensitive — do case-insensitive lookups
+            let get_attr = |name: &str| -> Vec<String> {
+                let name_lc = name.to_ascii_lowercase();
+                entry.attrs.iter()
+                    .find(|(k, _)| k.to_ascii_lowercase() == name_lc)
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or_default()
+            };
+            let get_first = |name: &str| -> Option<String> {
+                get_attr(name).into_iter().next()
+            };
+
+            naming_contexts = get_attr("namingContexts");
+
+            // Fallback: Active Directory exposes defaultNamingContext when namingContexts is absent
+            if naming_contexts.is_empty() {
+                if let Some(dc) = get_first("defaultNamingContext") {
+                    naming_contexts.push(dc);
+                }
+            }
+
+            vendor_name     = get_first("vendorName");
+            vendor_version  = get_first("vendorVersion");
+            supported_versions = get_attr("supportedLDAPVersion");
+            supported_sasl     = get_attr("supportedSASLMechanisms");
+
+            tracing::info!(
+                "rootDSE — namingContexts: {:?}, vendorName: {:?}, vendorVersion: {:?}",
+                naming_contexts, vendor_name, vendor_version
+            );
         }
 
         let active_base_dn = profile
             .base_dn
             .clone()
-            .or_else(|| naming_contexts.first().cloned())
+            .or_else(|| {
+                // Prefer dc= style contexts (domain roots) over ou= and other types,
+                // since those are almost always the meaningful browsing root.
+                naming_contexts.iter()
+                    .find(|nc| nc.trim_start().to_ascii_lowercase().starts_with("dc="))
+                    .or_else(|| naming_contexts.first())
+                    .cloned()
+            })
             .unwrap_or_default();
 
         Ok(ServerInfo {

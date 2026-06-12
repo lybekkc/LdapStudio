@@ -1,5 +1,5 @@
 use ldap_core::{
-    ChildrenPage, ConnectionProfile, LdapClient, LdifImportResult,
+    ChildrenPage, ConnectionProfile, LdapClient, LdifEntryResult, LdifImportResult,
     LdapEntry, LdapMod, NewEntry, SchemaInfo, SearchPage, ServerInfo, SiblingAnalysis,
 };
 use ldap_core::ldif::{format_ldif, parse_ldif, LdifOp};
@@ -22,6 +22,19 @@ pub async fn connect(
     *state.client.lock().await = Some(client);
     tracing::info!("Connected – base DN: {}", info.active_base_dn);
     Ok(info)
+}
+
+/// Override the active base DN for the current session (without reconnecting).
+#[tauri::command]
+pub async fn set_active_base_dn(
+    dn: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut guard = state.client.lock().await;
+    let client = guard.as_mut().ok_or("Not connected")?;
+    tracing::info!("Active base DN changed to: {}", dn);
+    client.server_info.active_base_dn = dn;
+    Ok(())
 }
 
 #[tauri::command]
@@ -378,13 +391,26 @@ pub async fn import_ldif(
     let client     = g.as_mut().ok_or("Not connected")?;
 
     for op in &ops {
+        let changetype = match op {
+            LdifOp::Add    { .. } => "add",
+            LdifOp::Modify { .. } => "modify",
+            LdifOp::Delete { .. } => "delete",
+        };
+        let dn = match op {
+            LdifOp::Add    { dn, .. } => dn.clone(),
+            LdifOp::Modify { dn, .. } => dn.clone(),
+            LdifOp::Delete { dn }     => dn.clone(),
+        };
+
         if dry_run {
-            // Just count without executing
             match op {
                 LdifOp::Add    { .. } => result.added    += 1,
                 LdifOp::Modify { .. } => result.modified += 1,
                 LdifOp::Delete { .. } => result.deleted  += 1,
             }
+            result.entries.push(LdifEntryResult {
+                dn, changetype: changetype.to_string(), success: true, error: None,
+            });
             continue;
         }
 
@@ -399,8 +425,8 @@ pub async fn import_ldif(
                     map.into_iter().collect()
                 };
                 client.ldap.add(dn, attr_map).await
-                    .map(|_| ()).map_err(|e| e.to_string())
-                    .and_then(|_| Ok(()))
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r.success().map(|_| ()).map_err(|e| e.to_string()))
             }
             LdifOp::Modify { dn, mods } => {
                 let ldap_mods: Vec<Mod<String>> = mods.iter().map(|m| {
@@ -412,28 +438,33 @@ pub async fn import_ldif(
                     }
                 }).collect();
                 client.ldap.modify(dn, ldap_mods).await
-                    .map(|_| ()).map_err(|e| e.to_string())
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r.success().map(|_| ()).map_err(|e| e.to_string()))
             }
             LdifOp::Delete { dn } => {
                 client.ldap.delete(dn).await
-                    .map(|_| ()).map_err(|e| e.to_string())
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r.success().map(|_| ()).map_err(|e| e.to_string()))
             }
         };
 
         match op_result {
-            Ok(_) => match op {
-                LdifOp::Add    { .. } => result.added    += 1,
-                LdifOp::Modify { .. } => result.modified += 1,
-                LdifOp::Delete { .. } => result.deleted  += 1,
-            },
+            Ok(_) => {
+                match op {
+                    LdifOp::Add    { .. } => result.added    += 1,
+                    LdifOp::Modify { .. } => result.modified += 1,
+                    LdifOp::Delete { .. } => result.deleted  += 1,
+                }
+                result.entries.push(LdifEntryResult {
+                    dn, changetype: changetype.to_string(), success: true, error: None,
+                });
+            }
             Err(e) => {
                 result.failed += 1;
-                let dn = match op {
-                    LdifOp::Add    { dn, .. } => dn,
-                    LdifOp::Modify { dn, .. } => dn,
-                    LdifOp::Delete { dn }     => dn,
-                };
                 result.errors.push(format!("{}: {}", dn, e));
+                result.entries.push(LdifEntryResult {
+                    dn, changetype: changetype.to_string(), success: false, error: Some(e.clone()),
+                });
                 if !continue_on_error { break; }
             }
         }

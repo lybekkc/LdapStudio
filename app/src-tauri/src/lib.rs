@@ -19,7 +19,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
-            connect, disconnect, ping,
+en            connect, disconnect, ping, set_active_base_dn,
             list_children, list_children_more, get_entry, set_page_size,
             search_page, search_next_page, cancel_search,
             get_schema,

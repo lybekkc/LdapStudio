@@ -187,6 +187,17 @@ pub enum RdnValueType {
 
 // ─── LDIF import result ───────────────────────────────────────────────────────
 
+/// Per-entry outcome recorded in the import log.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LdifEntryResult {
+    pub dn:         String,
+    /// "add" | "modify" | "delete"
+    pub changetype: String,
+    pub success:    bool,
+    pub error:      Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LdifImportResult {
@@ -196,6 +207,8 @@ pub struct LdifImportResult {
     pub skipped:  usize,
     pub failed:   usize,
     pub errors:   Vec<String>,
+    /// One entry per LDIF record, in order, populated even for dry-run.
+    pub entries:  Vec<LdifEntryResult>,
 }
 
 // ─── Schema ───────────────────────────────────────────────────────────────────

@@ -17,6 +17,10 @@
     "fs:allow-write-text-file",
     "fs:allow-write-file",
     "fs:allow-read-file",
-    "fs:default"
+    "fs:default",
+    "fs:scope-home-recursive",
+    "fs:scope-download-recursive",
+    "fs:scope-desktop-recursive",
+    "fs:scope-document-recursive"
   ]
 }

@@ -202,12 +202,15 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
   const [importing,         setImporting]         = useState(false);
   const [result,            setResult]            = useState<LdifImportResult | null>(null);
   const [fileName,          setFileName]          = useState<string | null>(null);
+  // Full path known only when file was opened via the dialog (not drag-drop)
+  const [filePath,          setFilePath]          = useState<string | null>(null);
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = e => {
       setLdifContent(e.target?.result as string ?? "");
       setFileName(file.name);
+      setFilePath(null);   // drag-drop has no full path
       setResult(null);
     };
     reader.readAsText(file, "utf-8");
@@ -215,20 +218,45 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
   };
 
   const handleBrowseFile = async () => {
-    const filePath = await dialogOpen({
+    const fp = await dialogOpen({
       title: "Open LDIF file",
       defaultPath: lastImportDir || undefined,
       multiple: false,
       filters: [{ name: "LDIF", extensions: ["ldif", "ldf", "txt"] }],
     });
-    if (!filePath || Array.isArray(filePath)) return;
-    const content = await readTextFile(filePath);
-    const name = filePath.split(/[/\\]/).pop() ?? filePath;
+    if (!fp || Array.isArray(fp)) return;
+    const content = await readTextFile(fp);
+    const name = fp.split(/[/\\]/).pop() ?? fp;
     setLdifContent(content);
     setFileName(name);
+    setFilePath(fp);
     setResult(null);
-    const dir = filePath.substring(0, Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")));
+    const dir = fp.substring(0, Math.max(fp.lastIndexOf("/"), fp.lastIndexOf("\\")));
     await setLastImportDir(dir);
+  };
+
+  /** Build an Apache-DS-compatible .log string from the import result. */
+  const buildLogContent = (r: LdifImportResult, isDryRun: boolean): string => {
+    const now = new Date().toISOString();
+    const lines: string[] = [
+      "#!ldapstudio-ldif-result#",
+      "#!VERSION=1.0",
+      `#!DATE=${now}`,
+      `#!DRY-RUN=${isDryRun}`,
+      `#!ADDED=${r.added} MODIFIED=${r.modified} DELETED=${r.deleted} FAILED=${r.failed}`,
+      "",
+    ];
+    for (const entry of r.entries) {
+      lines.push(`dn: ${entry.dn}`);
+      lines.push(`changetype: ${entry.changetype}`);
+      if (entry.success) {
+        lines.push("# OK");
+      } else {
+        lines.push(`# ERROR: ${entry.error ?? "unknown error"}`);
+      }
+      lines.push("");
+    }
+    return lines.join("\n");
   };
 
   const handleImport = async () => {
@@ -238,10 +266,25 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
     try {
       const r = await api.importLdif(ldifContent, dryRun, continueOnError);
       setResult(r);
+
+      // ── Write .log file next to the source file ──────────────────────────
+      if (filePath) {
+        const logPath = filePath.replace(/\.[^./\\]+$/, "") + ".log";
+        try {
+          await writeTextFile(logPath, buildLogContent(r, dryRun));
+        } catch (logErr) {
+          console.warn("Could not write import log:", logErr);
+        }
+      }
+
       if (!dryRun && r.failed === 0) {
         message.success(`Import fullført: +${r.added} ~${r.modified} -${r.deleted}`);
-        onImported?.();
+      } else if (!dryRun && (r.added > 0 || r.modified > 0 || r.deleted > 0)) {
+        message.warning(`Delvis fullført: +${r.added} ~${r.modified} -${r.deleted}, ${r.failed} feilet`);
       }
+      // Always refresh the tree after a real import attempt so newly
+      // added (or already-existing) entries become visible.
+      if (!dryRun) onImported?.();
     } catch (e) {
       message.error(`Import feilet: ${e}`);
     } finally {
@@ -252,6 +295,7 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
   const handleClose = () => {
     setLdifContent("");
     setFileName(null);
+    setFilePath(null);
     setResult(null);
     onClose();
   };
@@ -376,6 +420,17 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
             {result.skipped > 0   && <Tag color="default">{result.skipped} hoppet over</Tag>}
             {result.failed > 0    && <Tag color="red" icon={<CloseCircleOutlined />}>{result.failed} feilet</Tag>}
           </Space>
+
+          {filePath && (
+            <div style={{ marginTop: 6 }}>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                📄 Logg skrevet til:{" "}
+                <code style={{ fontSize: 11 }}>
+                  {filePath.replace(/\.[^./\\]+$/, "") + ".log"}
+                </code>
+              </Text>
+            </div>
+          )}
 
           {result.errors.length > 0 && (
             <div style={{ marginTop: 8 }}>

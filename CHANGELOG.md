@@ -9,6 +9,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.5.0] - 2026-06-12
+
+### Added
+- DIT tree now shows **all naming contexts as root nodes** — matches Apache Directory Studio behaviour; servers with multiple roots (e.g. `dc=prodreg,dc=no`, `ou=am-config`, `ou=identities`) are all visible and browsable at the same time
+- Clickable naming contexts in the Server Info popover — switch the active base DN (used for search defaults) without reconnecting
+- LDIF import now writes a `.log` file next to the imported file (Apache Directory Studio convention) — one line per entry with result code and error message
+- `defaultNamingContext` fallback when reading rootDSE — improves compatibility with Active Directory
+
+### Fixed
+- LDIF import silently succeeded even when LDAP operations failed (rc=68 entryAlreadyExists, rc=53, etc.) — result codes are now properly checked and surfaced per entry
+- LDIF import could not read files outside the app bundle — Tauri filesystem scope now covers home, downloads, desktop and documents directories
+- DIT tree did not refresh after LDIF import completed
+- `namingContexts` was not found on servers that return LDAP attribute names in lowercase — all rootDSE attribute lookups are now case-insensitive
+
+### Changed
+- Active base DN auto-detection now prefers `dc=` style naming contexts (domain roots) over `ou=` and other types when a server reports multiple contexts
+
+---
+
 ## [0.4.1] - 2026-06-12
 
 ### Fixed

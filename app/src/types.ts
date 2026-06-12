@@ -158,6 +158,14 @@ export interface SchemaInfo {
 
 // ─── LDIF ────────────────────────────────────────────────────────────────────
 
+export interface LdifEntryResult {
+  dn:         string;
+  /** "add" | "modify" | "delete" */
+  changetype: string;
+  success:    boolean;
+  error:      string | null;
+}
+
 export interface LdifImportResult {
   added:    number;
   modified: number;
@@ -165,6 +173,8 @@ export interface LdifImportResult {
   skipped:  number;
   failed:   number;
   errors:   string[];
+  /** Per-entry outcomes, in LDIF order. Populated even for dry-run. */
+  entries:  LdifEntryResult[];
 }
 
 // ─── App UI state ─────────────────────────────────────────────────────────────
