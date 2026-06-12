@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Table, Tag, Typography, Spin, Empty, Switch, Tooltip, Space,
   Button, Input, AutoComplete, Modal, message, Select,
@@ -131,6 +131,9 @@ const EntryDetails: React.FC = () => {
   const [ocEditList, setOcEditList] = useState<string[] | null>(null);
   const [ocAddInput, setOcAddInput] = useState("");
 
+  // Ref so keyboard shortcut handler can call saveEdits after it's defined
+  const saveEditsRef = useRef<(() => void) | null>(null);
+
   const isEditing = editMap !== null;
 
   // Derive objectClasses here (before early returns) so useMemo below is unconditional
@@ -148,6 +151,54 @@ const EntryDetails: React.FC = () => {
       .sort();
     return { schemaMustMissing, schemaMayMissing };
   }, [schema, editMap, currentOcs]);
+
+  // ── Keyboard shortcuts — must be before early returns (hooks rules) ─────────
+  const isMac = navigator.platform.toUpperCase().includes("MAC");
+  const isMod = useCallback((e: KeyboardEvent) => isMac ? e.metaKey : e.ctrlKey, [isMac]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!selectedEntry) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+
+      if (isMod(e) && e.key === "e" && !isEditing && !isReadOnly && !inInput) {
+        e.preventDefault();
+        setEditMap(buildEditMap(selectedEntry.attributes));
+        setOcEditList([...selectedEntry.attributes.find(a => a.name === "objectClass")?.values ?? []]);
+        setOcAddInput("");
+        setShowNewAttr(false);
+        setNewAttrName("");
+        setSiblingAnalysis(null);
+        setHintsExpanded(true);
+        return;
+      }
+      if (isMod(e) && e.key === "s" && isEditing) {
+        e.preventDefault();
+        // Trigger save via a custom event so saveEdits (defined below) can handle it
+        window.dispatchEvent(new CustomEvent("entry-save-requested"));
+        return;
+      }
+      if (e.key === "Escape" && isEditing && !inInput) {
+        e.preventDefault();
+        setEditMap(null);
+        setOcEditList(null);
+        setOcAddInput("");
+        setShowNewAttr(false);
+        setSiblingAnalysis(null);
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedEntry, isEditing, isReadOnly, isMod]);
+
+  // Listen for save trigger from keyboard shortcut
+  useEffect(() => {
+    const handler = () => { saveEditsRef.current?.(); };
+    window.addEventListener("entry-save-requested", handler);
+    return () => window.removeEventListener("entry-save-requested", handler);
+  }, []);
 
   if (!selectedDn && !entryLoading) {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Select an entry in the tree" style={{ marginTop: 80 }} />;
@@ -192,38 +243,6 @@ const EntryDetails: React.FC = () => {
     setSiblingAnalysis(null);
   };
 
-  // ── Keyboard shortcuts (entry-level) ────────────────────────────────────────
-  const isMac = navigator.platform.toUpperCase().includes("MAC");
-  const isMod = useCallback((e: KeyboardEvent) => isMac ? e.metaKey : e.ctrlKey, [isMac]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!selectedEntry) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      const inInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
-
-      // ⌘E — start edit (when not editing, not in input)
-      if (isMod(e) && e.key === "e" && !isEditing && !isReadOnly && !inInput) {
-        e.preventDefault();
-        startEdit();
-        return;
-      }
-      // ⌘S — save (when editing, even in inputs)
-      if (isMod(e) && e.key === "s" && isEditing) {
-        e.preventDefault();
-        saveEdits();
-        return;
-      }
-      // Escape — cancel edit (when editing, not in a modal)
-      if (e.key === "Escape" && isEditing && !inInput) {
-        e.preventDefault();
-        cancelEdit();
-        return;
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [selectedEntry, isEditing, isReadOnly, isMod]);
 
   const updateValue = (attr: string, idx: number, val: string) =>
     setEditMap(prev => {
@@ -291,6 +310,9 @@ const EntryDetails: React.FC = () => {
       setSaving(false);
     }
   };
+
+  // Keep ref in sync so keyboard shortcut useEffect (above early returns) can call saveEdits
+  saveEditsRef.current = saveEdits;
 
   const confirmDelete = () => {
     Modal.confirm({
