@@ -80,7 +80,7 @@
 
 > **macOS**: The app is not notarized, so macOS may say it is "damaged". Run this in Terminal after installing:
 > ```bash
-> xattr -cr /Applications/LdapStudio.app
+> xattr -cr "/Applications/LDAP Studio.app"
 > ```
 > Then open the app normally.
 
