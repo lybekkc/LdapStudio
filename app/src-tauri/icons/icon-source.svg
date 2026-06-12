@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1d2e"/>
+      <stop offset="100%" stop-color="#1a1040"/>
+    </linearGradient>
+    <linearGradient id="ldap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="ldap-grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded corners -->
+  <rect width="1024" height="1024" rx="200" ry="200" fill="url(#bg-grad)"/>
+
+  <!-- Subtle glow behind root node -->
+  <circle cx="512" cy="240" r="120" fill="#38bdf8" opacity="0.06"/>
+
+  <!-- Root node (top of tree) -->
+  <circle cx="512" cy="240" r="72" fill="url(#ldap-grad)" opacity="0.95"/>
+  <circle cx="512" cy="240" r="72" fill="none" stroke="url(#ldap-grad)" stroke-width="6" opacity="0.6"/>
+
+  <!-- Vertical trunk line -->
+  <line x1="512" y1="312" x2="512" y2="490" stroke="#38bdf8" stroke-width="18" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Horizontal branch line -->
+  <line x1="248" y1="490" x2="776" y2="490" stroke="#38bdf8" stroke-width="18" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Left branch down -->
+  <line x1="248" y1="490" x2="248" y2="628" stroke="#38bdf8" stroke-width="18" stroke-linecap="round" opacity="0.7"/>
+
+  <!-- Right branch down -->
+  <line x1="776" y1="490" x2="776" y2="600" stroke="url(#ldap-grad)" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+
+  <!-- Left sub-node (OU) -->
+  <circle cx="248" cy="700" r="60" fill="none" stroke="#38bdf8" stroke-width="18" opacity="0.8"/>
+  <circle cx="248" cy="700" r="28" fill="#38bdf8" opacity="0.5"/>
+
+  <!-- Right sub-node — magnifying glass lens (search/query) -->
+  <circle cx="776" cy="700" r="90" fill="url(#ldap-grad2)" stroke="url(#ldap-grad)" stroke-width="20" opacity="1"/>
+  <circle cx="776" cy="700" r="42" fill="url(#ldap-grad)" opacity="0.7"/>
+
+  <!-- Magnifying glass handle -->
+  <line x1="845" y1="772" x2="928" y2="856" stroke="url(#ldap-grad)" stroke-width="36" stroke-linecap="round" opacity="0.95"/>
+</svg>
+
