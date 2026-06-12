@@ -192,6 +192,20 @@ pub async fn add_entry(
 }
 
 #[tauri::command]
+pub async fn rename_entry(
+    dn:             String,
+    new_rdn:        String,
+    delete_old_rdn: bool,
+    new_superior:   Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut g = state.client.lock().await;
+    g.as_mut().ok_or("Not connected")?
+        .rename_entry(&dn, &new_rdn, delete_old_rdn, new_superior.as_deref())
+        .await.map_err(err_str)
+}
+
+#[tauri::command]
 pub async fn analyze_siblings(
     parent_dn: String,
     sample_size: Option<i32>,

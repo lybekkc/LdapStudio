@@ -23,7 +23,7 @@ pub fn run() {
             list_children, list_children_more, get_entry, set_page_size,
             search_page, search_next_page, cancel_search,
             get_schema,
-            modify_entry, delete_entry, add_entry, analyze_siblings,
+            modify_entry, delete_entry, add_entry, analyze_siblings, rename_entry,
             save_profile, list_profiles, delete_profile,
             modify_schema_entry,
             export_ldif, export_entries, import_ldif,

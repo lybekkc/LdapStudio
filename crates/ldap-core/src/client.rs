@@ -339,6 +339,30 @@ impl LdapClient {
         Ok(())
     }
 
+    /// Rename and/or move an entry using the LDAP ModifyDN operation.
+    /// - `new_rdn`: the new relative DN, e.g. `uid=johnny`
+    /// - `delete_old_rdn`: if true, removes the old RDN attribute value after rename
+    /// - `new_superior`: if Some, moves the entry under this new parent DN
+    pub async fn rename_entry(
+        &mut self,
+        dn:             &str,
+        new_rdn:        &str,
+        delete_old_rdn: bool,
+        new_superior:   Option<&str>,
+    ) -> Result<(), LdapError> {
+        self.ldap
+            .modifydn(dn, new_rdn, delete_old_rdn, new_superior)
+            .await?
+            .success()
+            .map_err(LdapError::from)?;
+
+        tracing::info!(
+            "Renamed/moved entry: {} → rdn={}, del_old={}, sup={:?}",
+            dn, new_rdn, delete_old_rdn, new_superior
+        );
+        Ok(())
+    }
+
     /// Sample up to `sample_size` one-level children of `parent_dn` and return
     /// frequency counts of objectClasses, attributes, and RDN patterns found.
     pub async fn analyze_siblings(

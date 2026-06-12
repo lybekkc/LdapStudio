@@ -183,7 +183,7 @@ export interface SavedSearch {
 
 // ─── Undo history ─────────────────────────────────────────────────────────────
 
-export type UndoOperationType = "modify" | "delete" | "add";
+export type UndoOperationType = "modify" | "delete" | "add" | "rename";
 
 export interface UndoRecord {
   id: string;
@@ -197,5 +197,10 @@ export interface UndoRecord {
   snapshot?: { dn: string; attributes: Array<{ name: string; values: string[] }> };
   /** True if one or more password attributes were skipped in the snapshot */
   hasRedactedAttrs?: boolean;
+  /** For undo of rename/move: restore the original DN */
+  inverseRename?: {
+    newRdn: string;
+    deleteOldRdn: boolean;
+    newSuperior?: string;
+  };
 }
-

@@ -6,7 +6,7 @@ import {
 import {
   UndoOutlined, DeleteOutlined, ClearOutlined,
   EditOutlined, MinusCircleOutlined, PlusCircleOutlined,
-  WarningOutlined,
+  WarningOutlined, SwapOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { message } from "antd";
@@ -23,6 +23,7 @@ const OP_CONFIG: Record<string, { color: string; icon: React.ReactNode; label: s
   modify: { color: "orange", icon: <EditOutlined />,        label: "Modified" },
   delete: { color: "red",    icon: <MinusCircleOutlined />, label: "Deleted"  },
   add:    { color: "green",  icon: <PlusCircleOutlined />,  label: "Created"  },
+  rename: { color: "purple", icon: <SwapOutlined />,        label: "Renamed"  },
 };
 
 function formatTimestamp(iso: string): string {

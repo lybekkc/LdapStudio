@@ -187,6 +187,7 @@ interface AppStore {
   modifyEntry: (dn: string, mods: LdapMod[]) => Promise<void>;
   deleteEntry: (dn: string) => Promise<void>;
   addEntry: (entry: NewEntry) => Promise<void>;
+  renameEntry: (dn: string, newRdn: string, deleteOldRdn: boolean, newSuperior?: string) => Promise<string>;
 
   runSearch: (base: string, filter: string, scope: string) => Promise<void>;
   loadNextPage: () => Promise<void>;
@@ -529,6 +530,43 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ selectedDn: entry.dn, selectedEntry: loaded });
   },
 
+  renameEntry: async (dn, newRdn, deleteOldRdn, newSuperior) => {
+    // Compute new DN for undo record
+    const oldRdn = dn.split(",")[0] ?? dn;
+    const oldParent = dn.includes(",") ? dn.slice(dn.indexOf(",") + 1) : undefined;
+    const newParent = newSuperior ?? oldParent ?? "";
+    const newDn = newParent ? `${newRdn},${newParent}` : newRdn;
+
+    await api.renameEntry(dn, newRdn, deleteOldRdn, newSuperior);
+
+    const profileId = get().activeProfile?.id;
+    if (profileId) {
+      const parts = [];
+      if (oldRdn !== newRdn) parts.push(`RDN: ${oldRdn} → ${newRdn}`);
+      if (newSuperior) parts.push(`moved to ${newSuperior}`);
+      const record: UndoRecord = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        dn: newDn,
+        description: parts.join(", ") || "Renamed",
+        operationType: "rename",
+        inverseRename: {
+          newRdn: oldRdn,
+          deleteOldRdn: true,
+          newSuperior: newSuperior ? oldParent : undefined,
+        },
+      };
+      await get().pushUndo(record);
+    }
+
+    // Update selected DN to new location
+    set({ selectedDn: newDn });
+    const reloaded = await api.getEntry(newDn).catch(() => null);
+    if (reloaded) set({ selectedEntry: reloaded });
+
+    return newDn;
+  },
+
   // ─── Search ───────────────────────────────────────────────────────────────
   runSearch: async (base, filter, scope) => {
     set({ searchLoading: true, searchResults: [], searchHasMore: false,
@@ -654,7 +692,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
     if (record.operationType === "modify" && record.inverseMods) {
       await api.modifyEntry(record.dn, record.inverseMods);
-      // Reload if this is the currently selected entry
       if (get().selectedDn === record.dn) {
         const entry = await api.getEntry(record.dn);
         set({ selectedEntry: entry });
@@ -670,6 +707,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (get().selectedDn === record.dn) {
         set({ selectedDn: null, selectedEntry: null });
       }
+    } else if (record.operationType === "rename" && record.inverseRename) {
+      const { newRdn, deleteOldRdn, newSuperior } = record.inverseRename;
+      await api.renameEntry(record.dn, newRdn, deleteOldRdn, newSuperior);
+      const restoredDn = newSuperior
+        ? `${newRdn},${newSuperior}`
+        : `${newRdn},${record.dn.includes(",") ? record.dn.slice(record.dn.indexOf(",") + 1) : ""}`;
+      set({ selectedDn: restoredDn });
+      const entry = await api.getEntry(restoredDn).catch(() => null);
+      if (entry) set({ selectedEntry: entry });
     }
 
     // Remove the record after successful undo

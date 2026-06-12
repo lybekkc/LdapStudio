@@ -36,6 +36,13 @@ export const deleteEntry = (dn: string) =>
 export const addEntry = (entry: NewEntry) =>
   invoke<void>("add_entry", { entry });
 
+export const renameEntry = (
+  dn: string,
+  newRdn: string,
+  deleteOldRdn: boolean,
+  newSuperior?: string,
+) => invoke<void>("rename_entry", { dn, newRdn, deleteOldRdn, newSuperior: newSuperior ?? null });
+
 export const analyzeSiblings = (parentDn: string, sampleSize = 25) =>
   invoke<SiblingAnalysis>("analyze_siblings", { parentDn, sampleSize });
 

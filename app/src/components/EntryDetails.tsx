@@ -6,7 +6,7 @@ import {
 import {
   CopyOutlined, CaretDownOutlined, CaretRightOutlined,
   EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined,
-  PlusOutlined, BulbOutlined, BookOutlined, LockOutlined,
+  PlusOutlined, BulbOutlined, BookOutlined, LockOutlined, SwapOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
@@ -16,6 +16,7 @@ import {
   processPasswordMods,
   HASH_SCHEME_OPTIONS, type HashScheme,
 } from "../utils/ldapPassword";
+import RenameEntryModal from "./RenameEntryModal";
 import type { LdapAttribute, LdapMod, SiblingAnalysis } from "../types";
 
 const { Text, Paragraph } = Typography;
@@ -113,6 +114,7 @@ const EntryDetails: React.FC = () => {
   const [saving, setSaving]                   = useState(false);
   const [newAttrName, setNewAttrName]         = useState("");
   const [showNewAttr, setShowNewAttr]         = useState(false);
+  const [renameOpen, setRenameOpen]           = useState(false);
 
   // Sibling analysis for edit-mode hints
   const [siblingAnalysis, setSiblingAnalysis] = useState<SiblingAnalysis | null>(null);
@@ -326,6 +328,7 @@ const EntryDetails: React.FC = () => {
   ];
 
   return (
+    <>
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
 
       {/* ── DN header ──────────────────────────────────────────────────────── */}
@@ -342,6 +345,9 @@ const EntryDetails: React.FC = () => {
               <>
                 <Tooltip title={isReadOnly ? "Read-only — lås opp i verktøylinjen for å redigere" : "Rediger entry"}>
                   <Button size="small" icon={<EditOutlined />} onClick={startEdit} disabled={isReadOnly}>Rediger</Button>
+                </Tooltip>
+                <Tooltip title={isReadOnly ? "Read-only" : "Rename / Move entry"}>
+                  <Button size="small" icon={<SwapOutlined />} onClick={() => setRenameOpen(true)} disabled={isReadOnly} />
                 </Tooltip>
                 <Tooltip title={isReadOnly ? "Read-only — lås opp i verktøylinjen for å slette" : "Slett entry"}>
                   <Button size="small" icon={<DeleteOutlined />} danger onClick={confirmDelete} disabled={isReadOnly} />
@@ -807,6 +813,15 @@ const EntryDetails: React.FC = () => {
         </div>
       )}
     </div>
+    {renameOpen && selectedEntry && (
+      <RenameEntryModal
+        open={renameOpen}
+        dn={selectedEntry.dn}
+        onClose={() => setRenameOpen(false)}
+        onRenamed={() => setRenameOpen(false)}
+      />
+    )}
+    </>
   );
 };
 
