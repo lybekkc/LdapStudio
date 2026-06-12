@@ -1,7 +1,7 @@
 # LDAP Studio
 
-> En moderne, cross-platform LDAP-klient bygget med **Rust + Tauri + React**.  
-> Lett, rask og selvforsynt — ingen Java, ingen Electron.
+> A modern, cross-platform LDAP client built with **Rust + Tauri + React**.  
+> Lightweight, fast and self-contained — no Java, no Electron.
 
 [![Build & Release](https://github.com/lybekkc/LdapStudio/actions/workflows/build.yml/badge.svg)](https://github.com/lybekkc/LdapStudio/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -9,98 +9,98 @@
 ---
 
 > [!WARNING]
-> **Bruk på eget ansvar — ikke produksjonstestet**
+> **Use at your own risk — not production-tested**
 >
-> Dette er et hobbyprosjekt under aktiv utvikling. Koden er **ikke gjennomgått,
-> ikke sikkerhetsrevidert og ikke produksjonstestet**. Skriveoperasjoner
-> (rediger, slett, opprett, importer) gjøres direkte mot LDAP-serveren uten
-> ekstra lag av validering eller angre-funksjonalitet.
+> This is a hobby project under active development. The code has **not been reviewed,
+> not security-audited and not production-tested**. Write operations
+> (edit, delete, create, import) are performed directly against the LDAP server without
+> additional validation layers or undo functionality.
 >
-> **Før du bruker dette mot et produksjonsmiljø:**
-> - Test grundig i et ikke-produksjonsmiljø
-> - Sett opp tilkoblingsprofilen som **read-only** og lås opp kun når nødvendig
-> - Ta backup av katalogen din (f.eks. LDIF-eksport) før du gjør endringer
-> - Verifiser at endringer er korrekte etter utførelse
+> **Before using this against a production environment:**
+> - Test thoroughly in a non-production environment
+> - Set up the connection profile as **read-only** and unlock only when necessary
+> - Back up your directory (e.g. LDIF export) before making changes
+> - Verify that changes are correct after execution
 >
-> Forfatterne tar **ikke ansvar** for datatap, uønskede endringer eller andre
-> konsekvenser av bruk. Se [MIT-lisensen](LICENSE) for fullstendig ansvarsfraskrivelse.
+> The authors take **no responsibility** for data loss, unintended changes or other
+> consequences of use. See the [MIT License](LICENSE) for the full disclaimer.
 
 ---
 
-## ✨ Funksjoner
+## ✨ Features
 
-### Navigasjon
-- **DIT-tre** med lazy loading og paginering
-- **Entry-detaljer** — alle attributter, inkl. operasjonelle (toggle)
-- **ObjectClass**-seksjon øverst, kollapsbar, click-to-copy
+### Navigation
+- **DIT tree** with lazy loading and pagination
+- **Entry details** — all attributes, incl. operational (toggle)
+- **ObjectClass** section at the top, collapsible, click-to-copy
 
-### Søk
-- Vilkårlig LDAP-filter, scope (base/one-level/subtree)
-- Paginering med Simple Paged Results Control
-- Lagrede søk
+### Search
+- Arbitrary LDAP filter, scope (base/one-level/subtree)
+- Pagination with Simple Paged Results Control
+- Saved searches
 
-### Skriveoperasjoner
-- **Rediger** entry inline — diff-basert Modify (sender kun endringer)
-- **Slett** med bekreftelsesdialog
-- **Opprett** ny entry — smart veiviser med søsken-analyse
-- **objectClasses** kan legges til og fjernes direkte i redigeringsmodus
+### Write Operations
+- **Edit** entry inline — diff-based Modify (sends only changes)
+- **Delete** with confirmation dialog
+- **Create** new entry — smart wizard with sibling analysis
+- **objectClasses** can be added and removed directly in edit mode
 
-### Smart komplettering
-- **Søsken-analyse** — sampler eksisterende entries, viser manglende attributter med frekvens %
-- **Schema-hint** — viser MUST/MAY-attributter fra valgte objectClasses
-- **RDN-gjenkjenning** — oppdager UUID/tall/e-post-mønstre, auto-genererer UUID-verdier
-- **Passord-hashing** — SSHA / SSHA256 / SSHA512 ved lagring
+### Smart Completion
+- **Sibling analysis** — samples existing entries, shows missing attributes with frequency %
+- **Schema hints** — shows MUST/MAY attributes from selected objectClasses
+- **RDN detection** — detects UUID/number/email patterns, auto-generates UUID values
+- **Password hashing** — SSHA / SSHA256 / SSHA512 on save
 
 ### Schema
-- Brows ObjectClasses, AttributeTypes, Syntaxes, Matching Rules
-- **Rediger og opprett** schema-definisjoner via LDAP Modify på `cn=schema`
+- Browse ObjectClasses, AttributeTypes, Syntaxes, Matching Rules
+- **Edit and create** schema definitions via LDAP Modify on `cn=schema`
 
 ### Import / Export
-- **LDIF** — eksport (med/uten operasjonelle attr, maks antall/"alle") og import (dry-run, continue-on-error)
-- **CSV / Excel (.xlsx)** — konfigurerbare kolonner, drag-to-reorder, live forhåndsvisning
+- **LDIF** — export (with/without operational attrs, max count/"all") and import (dry-run, continue-on-error)
+- **CSV / Excel (.xlsx)** — configurable columns, drag-to-reorder, live preview
 
-### Tilkobling
+### Connection
 - LDAP / LDAPS / StartTLS
 - Simple Bind, SASL PLAIN, Anonymous
-- **Tilkoblingsprofiler** lagret lokalt (kryptert app-data)
-- **Read-only modus** per profil — lås opp midlertidig ved behov
-- **Auto-reconnect** ved VPN-tap (keepalive ping + exponentiell backoff)
+- **Connection profiles** stored locally (encrypted app data)
+- **Read-only mode** per profile — unlock temporarily as needed
+- **Auto-reconnect** on VPN drop (keepalive ping + exponential backoff)
 
 ---
 
-## 🚀 Last ned
+## 🚀 Download
 
-> **[→ Siste release](https://github.com/lybekkc/LdapStudio/releases/latest)**
+> **[→ Latest release](https://github.com/lybekkc/LdapStudio/releases/latest)**
 
-| Plattform | Format |
-|-----------|--------|
+| Platform | Format |
+|----------|--------|
 | macOS (Apple Silicon) | `.dmg` (aarch64) |
 | macOS (Intel)         | `.dmg` (x86_64)  |
 | Windows               | `.msi` / `.exe`  |
 | Linux                 | `.AppImage` / `.deb` |
 
-> **macOS**: Høyreklikk → Åpne første gang (appen er ikke App Store-signert).
+> **macOS**: Right-click → Open the first time (the app is not App Store-signed).
 
 ---
 
-## 🏗️ Bygg fra kildekode
+## 🏗️ Build from Source
 
-### Forutsetninger
+### Prerequisites
 - [Rust](https://rustup.rs/) ≥ 1.80
 - [Node.js](https://nodejs.org/) ≥ 20 + npm
 - macOS: `xcode-select --install`
 - Linux: `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev`
 
-### Dev-modus
+### Dev Mode
 ```bash
 git clone https://github.com/lybekkc/LdapStudio.git
 cd LdapStudio/app
 npm install
 npm run tauri dev
 ```
-Første oppstart kompilerer Rust-avhengigheter (~2–4 min). Etterfølgende er mye raskere.
+First startup compiles Rust dependencies (~2–4 min). Subsequent startups are much faster.
 
-### Release-bygg
+### Release Build
 ```bash
 cd app
 npm run tauri build
@@ -109,34 +109,34 @@ npm run tauri build
 
 ---
 
-## 🗂️ Prosjektstruktur
+## 🗂️ Project Structure
 
 ```
 LdapStudio/
 ├── crates/
-│   └── ldap-core/          # Rust-kjerne: LDAP-klient, schema-parser, LDIF
+│   └── ldap-core/          # Rust core: LDAP client, schema parser, LDIF
 ├── app/
 │   ├── src/                # React/TypeScript frontend (Ant Design, Zustand)
-│   │   ├── api/            # Tauri command-wrapper
-│   │   ├── components/     # UI-komponenter
-│   │   ├── store/          # Global state + persistens
-│   │   └── utils/          # Schema-traversal, passord-hashing
+│   │   ├── api/            # Tauri command wrappers
+│   │   ├── components/     # UI components
+│   │   ├── store/          # Global state + persistence
+│   │   └── utils/          # Schema traversal, password hashing
 │   └── src-tauri/          # Tauri backend: commands, state
-├── .github/workflows/      # CI/CD: bygg for macOS/Windows/Linux
-├── release.sh              # Versjonsbump + tag + push
+├── .github/workflows/      # CI/CD: build for macOS/Windows/Linux
+├── release.sh              # Version bump + tag + push
 └── CHANGELOG.md
 ```
 
-**Frontend-agnostisk kjerne** — `ldap-core` er et rent Rust-bibliotek som kan brukes av Tauri, axum/actix, egui eller Slint uten endringer.
+**Frontend-agnostic core** — `ldap-core` is a pure Rust library that can be used by Tauri, axum/actix, egui or Slint without modifications.
 
 ---
 
 ## 📋 Changelog
 
-Se [CHANGELOG.md](CHANGELOG.md).
+See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## 📄 Lisens
+## 📄 License
 
-[MIT](LICENSE) — fri til bruk, modifisering og distribusjon.
+[MIT](LICENSE) — free to use, modify and distribute.

@@ -1,57 +1,56 @@
-# Sikkerhet og ansvarsfraskrivelse
+# Security and Disclaimer
 
 ## ⚠️ Status
 
-LDAP Studio er et **hobbyprosjekt under utvikling**. Det er:
+LDAP Studio is a **hobby project under development**. It is:
 
-- **Ikke sikkerhetsrevidert** — koden er ikke gjennomgått av en tredjepart
-- **Ikke produksjonstestet** — ingen formell QA eller belastningstesting
-- **Ikke garantert korrekt** — feil kan forekomme i alle operasjoner, spesielt skriveoperasjoner
-
----
-
-## Ansvarsfraskrivelse
-
-> Programvaren leveres «som den er» uten noen form for garanti, verken
-> uttrykt eller underforstått. Forfatterne fraskriver seg ethvert ansvar for
-> **datatap, uønskede katalogendringer, sikkerhetsbrudd eller andre skader**
-> som oppstår ved bruk av dette verktøyet.
-
-Dette er i tråd med [MIT-lisensen](LICENSE) som prosjektet er utgitt under.
+- **Not security-audited** — the code has not been reviewed by a third party
+- **Not production-tested** — no formal QA or load testing
+- **Not guaranteed to be correct** — errors may occur in any operation, especially write operations
 
 ---
 
-## Anbefalinger før bruk mot produksjon
+## Disclaimer
 
-1. **Test i et testmiljø først** — sett opp en kopi eller et testtre og verifiser at
-   alle funksjoner oppfører seg som forventet
+> The software is provided "as is" without any form of warranty, either
+> expressed or implied. The authors disclaim any responsibility for
+> **data loss, unintended directory changes, security breaches or other damages**
+> arising from the use of this tool.
 
-2. **Bruk read-only modus** — marker tilkoblingsprofilen som read-only i
-   tilkoblingsdialogen; lås opp midlertidig kun når du aktivt skal gjøre endringer
-
-3. **Ta backup** — eksporter katalogen din som LDIF før du gjør større endringer
-   (`⬇ LDIF`-knappen i verktøylinjen)
-
-4. **Verifiser endringer** — sjekk at endringer er korrekte i etterkant
-
-5. **Ikke lagre sensitiv informasjon i profilpassord** på delte maskiner —
-   tilkoblingsprofiler (inkl. passord) lagres lokalt i Tauris app-data-mappe
+This is in accordance with the [MIT License](LICENSE) under which the project is released.
 
 ---
 
-## Kjente begrensninger
+## Recommendations Before Use in Production
 
-- Ingen støtte for LDAP-transaksjoner (alle endringer er umiddelbare og irreversible)
-- Ingen angre-funksjonalitet
-- Binære attributter (f.eks. `jpegPhoto`, `userCertificate`) kan vises feil
-- Meget store kataloger (>100 000 entries) er ikke belastningstestet
-- modrdn/moddn (renaming/moving entries) er ikke implementert
+1. **Test in a test environment first** — set up a copy or a test tree and verify that
+   all features behave as expected
+
+2. **Use read-only mode** — mark the connection profile as read-only in
+   the connection dialog; unlock temporarily only when actively making changes
+
+3. **Take a backup** — export your directory as LDIF before making major changes
+   (the `⬇ LDIF` button in the toolbar)
+
+4. **Verify changes** — check that changes are correct afterwards
+
+5. **Do not store sensitive information in profile passwords** on shared machines —
+   connection profiles (incl. passwords) are stored locally in Tauri's app data folder
 
 ---
 
-## Rapporter sikkerhetsbugs
+## Known Limitations
 
-Oppdag du en sikkerhetssårbarhet, meld dette som et **GitHub Issue** med
-merkelappen `security`. Ikke inkluder detaljer om sårbarheten i offentlige issues
-— bruk GitHub Security Advisories for sensitive funn.
+- No support for LDAP transactions (all changes are immediate and irreversible)
+- No undo functionality
+- Binary attributes (e.g. `jpegPhoto`, `userCertificate`) may be displayed incorrectly
+- Very large directories (>100,000 entries) have not been load-tested
+- modrdn/moddn (renaming/moving entries) is not implemented
 
+---
+
+## Report Security Bugs
+
+If you discover a security vulnerability, report it as a **GitHub Issue** with
+the label `security`. Do not include details about the vulnerability in public issues
+— use GitHub Security Advisories for sensitive findings.
