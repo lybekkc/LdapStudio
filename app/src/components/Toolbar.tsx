@@ -19,6 +19,14 @@ import { LdapIcon } from "./LdapIcon";
 
 const { Text } = Typography;
 
+// Stable color per profile name — makes it easy to visually tell environments apart
+const TAG_COLORS = ["cyan", "blue", "geekblue", "purple", "magenta", "red", "volcano", "orange", "gold", "lime", "green"];
+function profileColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return TAG_COLORS[h % TAG_COLORS.length];
+}
+
 const Toolbar: React.FC = () => {
   const {
     connected,
@@ -60,6 +68,15 @@ const Toolbar: React.FC = () => {
     return () => window.removeEventListener("show-shortcuts", handler);
   }, []);
 
+  // Update window title to reflect the active profile
+  useEffect(() => {
+    if (connected && activeProfile) {
+      document.title = `${activeProfile.name} — LDAP Studio`;
+    } else {
+      document.title = "LDAP Studio";
+    }
+  }, [connected, activeProfile]);
+
   const handleUnlock = () => {
     Modal.confirm({
       title: "Aktiver skrivetilgang?",
@@ -88,6 +105,16 @@ const Toolbar: React.FC = () => {
 
   const serverInfoPopover = serverInfo && (
     <div style={{ minWidth: 280 }}>
+      {activeProfile && (
+        <div style={{ marginBottom: 6 }}>
+          <Text type="secondary">Profile:</Text>{" "}
+          <Tag color={profileColor(activeProfile.name)} style={{ fontWeight: 600 }}>{activeProfile.name}</Tag>
+        </div>
+      )}
+      {activeProfile && (
+        <div><Text type="secondary">Host:</Text> {activeProfile.host}:{activeProfile.port}</div>
+      )}
+      <div><Text type="secondary">Active base DN:</Text> <Text code style={{ fontSize: 11 }}>{serverInfo.activeBaseDn}</Text></div>
       <div><Text type="secondary">Vendor:</Text> {serverInfo.vendorName ?? "Unknown"}</div>
       <div><Text type="secondary">Version:</Text> {serverInfo.vendorVersion ?? "Unknown"}</div>
       <div><Text type="secondary">LDAP versions:</Text> {serverInfo.supportedLdapVersions.join(", ")}</div>
@@ -255,10 +282,19 @@ const Toolbar: React.FC = () => {
               </Tooltip>
             )
           )}
-          <Tag color="green" style={{ marginRight: 0 }}>Connected</Tag>
-          <Text style={{ color: "#ffffffaa", fontSize: 12, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {serverInfo.vendorName ? `${serverInfo.vendorName} — ` : ""}{serverInfo.activeBaseDn}
-          </Text>
+
+          {/* Profile name — colored badge, primary identity indicator */}
+          {activeProfile && (
+            <Tooltip title={`${activeProfile.host}:${activeProfile.port} — ${serverInfo.activeBaseDn}`}>
+              <Tag
+                color={profileColor(activeProfile.name)}
+                style={{ fontWeight: 600, fontSize: 12, cursor: "default", userSelect: "none" }}
+              >
+                {activeProfile.name}
+              </Tag>
+            </Tooltip>
+          )}
+
           <Popover
             content={serverInfoPopover}
             title="Server info"
