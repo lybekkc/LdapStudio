@@ -44,7 +44,6 @@ export function isConnectionError(e: unknown): boolean {
 let _store: Store | null = null;
 const STORE_FILE   = "profiles.json";
 const PROFILES_KEY = "profiles";
-const SEARCHES_KEY = "savedSearches";
 const SETTINGS_KEY = "settings";
 
 // ─── Per-profile undo history helpers ────────────────────────────────────────
@@ -109,15 +108,17 @@ async function loadPersistedProfiles(): Promise<ConnectionProfile[]> {
   return (await store.get<ConnectionProfile[]>(PROFILES_KEY)) ?? [];
 }
 
-async function persistSearches(searches: SavedSearch[]) {
-  const store = await getStore();
-  await store.set(SEARCHES_KEY, searches);
-  await store.save();
+// ─── Per-profile saved searches ──────────────────────────────────────────────
+
+async function loadProfileSearches(profileId: string): Promise<SavedSearch[]> {
+  const store = await Store.load(`searches-${profileId}.json`);
+  return (await store.get<SavedSearch[]>("searches")) ?? [];
 }
 
-async function loadPersistedSearches(): Promise<SavedSearch[]> {
-  const store = await getStore();
-  return (await store.get<SavedSearch[]>(SEARCHES_KEY)) ?? [];
+async function saveProfileSearches(profileId: string, searches: SavedSearch[]): Promise<void> {
+  const store = await Store.load(`searches-${profileId}.json`);
+  await store.set("searches", searches);
+  await store.save();
 }
 
 async function persistSettings(s: PersistedSettings) {
@@ -310,12 +311,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ─── Init: load profiles from disk ────────────────────────────────────────
   initApp: async () => {
     try {
-      const [profiles, savedSearches, settings] = await Promise.all([
+      const [profiles, settings] = await Promise.all([
         loadPersistedProfiles(),
-        loadPersistedSearches(),
         loadPersistedSettings(),
       ]);
-      set({ profiles, savedSearches,
+      set({ profiles,
             pageSize: settings.pageSize,
             showOcBrowser: settings.showOcBrowser,
             showOcSearch: settings.showOcSearch,
@@ -340,8 +340,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
             reconnecting: false, reconnectAttempt: 0,
             reconnectFailed: false, reconnectIn: 0 });
       get().startKeepalive();
-      // Load undo history for this profile
+      // Load per-profile undo history and saved searches
       await get().loadUndoHistory();
+      const searches = await loadProfileSearches(profile.id);
+      set({ savedSearches: searches });
     } catch (e) {
       set({ connectionError: String(e) });
     } finally {
@@ -369,6 +371,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       reconnectFailed: false,
       reconnectIn: 0,
       undoHistory: [],
+      savedSearches: [],
     });
   },
 
@@ -717,19 +720,23 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // ─── Saved searches ────────────────────────────────────────────────────────
   saveSearch: async (s) => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
     const current = get().savedSearches;
     const exists = current.findIndex((x) => x.id === s.id);
     const updated = exists >= 0
       ? current.map((x) => (x.id === s.id ? s : x))
       : [...current, s];
     set({ savedSearches: updated });
-    await persistSearches(updated);
+    await saveProfileSearches(profileId, updated);
   },
 
   removeSavedSearch: async (id) => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
     const updated = get().savedSearches.filter((s) => s.id !== id);
     set({ savedSearches: updated });
-    await persistSearches(updated);
+    await saveProfileSearches(profileId, updated);
   },
 
   // ─── Undo history ─────────────────────────────────────────────────────────
