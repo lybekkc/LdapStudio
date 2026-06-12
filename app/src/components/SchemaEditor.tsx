@@ -7,7 +7,6 @@ import {
   DeleteOutlined, ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
-import * as api from "../api/commands";
 import type { ObjectClass, AttributeType } from "../types";
 
 const { Text } = Typography;
@@ -98,7 +97,7 @@ interface OcEditorProps {
 }
 
 export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, onClose, onSaved }) => {
-  const { schema } = useAppStore();
+  const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<OcFormValues>();
   const [rawValue, setRawValue]   = useState("");
   const [activeTab, setActiveTab] = useState("form");
@@ -149,11 +148,12 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, onC
 
     setSaving(true);
     try {
-      await api.modifySchemaEntry(
+      await modifySchemaEntry(
         schemaDn,
         "objectClasses",
         initial?.raw ?? "",
         definitionToSave,
+        `${isNew ? "Created" : "Modified"} ObjectClass${initial?.name ? ` "${initial.name}"` : ""}`,
       );
       message.success(isNew ? "ObjectClass opprettet" : "ObjectClass oppdatert");
       onSaved();
@@ -173,7 +173,10 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, onC
       okText: "Slett", okType: "danger", cancelText: "Avbryt",
       onOk: async () => {
         try {
-          await api.modifySchemaEntry(schemaDn, "objectClasses", initial.raw!, "");
+          await modifySchemaEntry(
+            schemaDn, "objectClasses", initial.raw!, "",
+            `Deleted ObjectClass "${initial.name}"`,
+          );
           message.success("ObjectClass slettet fra schema");
           onSaved();
         } catch (e) {
@@ -321,7 +324,7 @@ const COMMON_SYNTAXES = [
 ];
 
 export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, onClose, onSaved }) => {
-  const { schema } = useAppStore();
+  const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<AtFormValues>();
   const [rawValue, setRawValue]   = useState("");
   const [activeTab, setActiveTab] = useState("form");
@@ -373,7 +376,10 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, onC
     if (!definitionToSave) { message.error("Definisjon er tom"); return; }
     setSaving(true);
     try {
-      await api.modifySchemaEntry(schemaDn, "attributeTypes", initial?.raw ?? "", definitionToSave);
+      await modifySchemaEntry(
+        schemaDn, "attributeTypes", initial?.raw ?? "", definitionToSave,
+        `${isNew ? "Created" : "Modified"} AttributeType${initial?.name ? ` "${initial.name}"` : ""}`,
+      );
       message.success(isNew ? "AttributeType opprettet" : "AttributeType oppdatert");
       onSaved();
     } catch (e) {
@@ -392,7 +398,10 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, onC
       okText: "Slett", okType: "danger", cancelText: "Avbryt",
       onOk: async () => {
         try {
-          await api.modifySchemaEntry(schemaDn, "attributeTypes", initial.raw!, "");
+          await modifySchemaEntry(
+            schemaDn, "attributeTypes", initial.raw!, "",
+            `Deleted AttributeType "${initial.name}"`,
+          );
           message.success("AttributeType slettet");
           onSaved();
         } catch (e) {

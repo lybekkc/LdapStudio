@@ -183,7 +183,7 @@ export interface SavedSearch {
 
 // ─── Undo history ─────────────────────────────────────────────────────────────
 
-export type UndoOperationType = "modify" | "delete" | "add" | "rename";
+export type UndoOperationType = "modify" | "delete" | "add" | "rename" | "schema";
 
 export interface UndoRecord {
   id: string;
@@ -202,5 +202,12 @@ export interface UndoRecord {
     newRdn: string;
     deleteOldRdn: boolean;
     newSuperior?: string;
+  };
+  /** For undo of schema changes: re-apply the inverse modifySchemaEntry */
+  inverseSchema?: {
+    schemaDn: string;
+    attrName: string;   // "objectClasses" or "attributeTypes"
+    oldRaw:   string;   // what to "delete" in the inverse call
+    newRaw:   string;   // what to "add" in the inverse call
   };
 }

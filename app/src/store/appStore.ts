@@ -195,6 +195,14 @@ interface AppStore {
   loadSchema: () => Promise<void>;
   reloadSchema: () => Promise<void>;
 
+  modifySchemaEntry: (
+    schemaDn: string,
+    attrName: string,
+    oldRaw: string,
+    newRaw: string,
+    description?: string,
+  ) => Promise<void>;
+
   loadProfiles: () => Promise<void>;
   saveProfile: (p: ConnectionProfile) => Promise<void>;
   removeProfile: (id: string) => Promise<void>;
@@ -630,6 +638,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  modifySchemaEntry: async (schemaDn, attrName, oldRaw, newRaw, description) => {
+    await api.modifySchemaEntry(schemaDn, attrName, oldRaw, newRaw);
+
+    const profileId = get().activeProfile?.id;
+    if (profileId) {
+      // Determine operation type for description
+      const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
+      const typeLabel = attrName === "objectClasses" ? "ObjectClass" : "AttributeType";
+      const record: UndoRecord = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        dn: schemaDn,
+        description: description ?? `${opLabel} ${typeLabel}`,
+        operationType: "schema",
+        inverseSchema: {
+          schemaDn,
+          attrName,
+          oldRaw:  newRaw,   // inverse: delete the new one
+          newRaw:  oldRaw,   // inverse: restore the old one
+        },
+      };
+      await get().pushUndo(record);
+    }
+  },
+
   // ─── Profiles (persisted to disk via tauri-plugin-store) ──────────────────
   loadProfiles: async () => {
     const profiles = await loadPersistedProfiles();
@@ -716,6 +749,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
       set({ selectedDn: restoredDn });
       const entry = await api.getEntry(restoredDn).catch(() => null);
       if (entry) set({ selectedEntry: entry });
+    } else if (record.operationType === "schema" && record.inverseSchema) {
+      const { schemaDn, attrName, oldRaw, newRaw } = record.inverseSchema;
+      await api.modifySchemaEntry(schemaDn, attrName, oldRaw, newRaw);
+      // Reload schema to reflect changes
+      const schema = await api.getSchema().catch(() => null);
+      if (schema) set({ schema });
     }
 
     // Remove the record after successful undo
