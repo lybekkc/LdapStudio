@@ -8,6 +8,25 @@
 
 ---
 
+> [!WARNING]
+> **Bruk på eget ansvar — ikke produksjonstestet**
+>
+> Dette er et hobbyprosjekt under aktiv utvikling. Koden er **ikke gjennomgått,
+> ikke sikkerhetsrevidert og ikke produksjonstestet**. Skriveoperasjoner
+> (rediger, slett, opprett, importer) gjøres direkte mot LDAP-serveren uten
+> ekstra lag av validering eller angre-funksjonalitet.
+>
+> **Før du bruker dette mot et produksjonsmiljø:**
+> - Test grundig i et ikke-produksjonsmiljø
+> - Sett opp tilkoblingsprofilen som **read-only** og lås opp kun når nødvendig
+> - Ta backup av katalogen din (f.eks. LDIF-eksport) før du gjør endringer
+> - Verifiser at endringer er korrekte etter utførelse
+>
+> Forfatterne tar **ikke ansvar** for datatap, uønskede endringer eller andre
+> konsekvenser av bruk. Se [MIT-lisensen](LICENSE) for fullstendig ansvarsfraskrivelse.
+
+---
+
 ## ✨ Funksjoner
 
 ### Navigasjon
