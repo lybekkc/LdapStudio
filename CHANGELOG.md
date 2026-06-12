@@ -7,6 +7,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+---
+
+## [0.4.0] - 2026-06-12
+
 ### Added
 - Undo/redo history per connection profile — stored locally in `undo-{profileId}.json`, survives restarts
   - Tracks: modify, delete, create, rename/move and schema changes
