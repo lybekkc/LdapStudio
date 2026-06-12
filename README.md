@@ -78,7 +78,11 @@
 | Windows               | `.msi` / `.exe`  |
 | Linux                 | `.AppImage` / `.deb` |
 
-> **macOS**: Right-click → Open the first time (the app is not App Store-signed).
+> **macOS**: The app is not notarized, so macOS may say it is "damaged". Run this in Terminal after installing:
+> ```bash
+> xattr -cr /Applications/LdapStudio.app
+> ```
+> Then open the app normally.
 
 ---
 
