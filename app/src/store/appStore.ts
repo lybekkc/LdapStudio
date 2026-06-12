@@ -235,6 +235,8 @@ interface AppStore {
   setLastImportDir: (dir: string) => Promise<void>;
   setActiveTab: (tab: AppTab) => void;
   setShowConnectionDialog: (show: boolean) => void;
+  historyDrawerOpen: boolean;
+  setHistoryDrawerOpen: (open: boolean) => void;
 }
 
 // ─── Store implementation ─────────────────────────────────────────────────────
@@ -279,6 +281,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   activeTab: "browser",
   showConnectionDialog: true,
   undoHistory: [],
+  historyDrawerOpen: false,
 
   // ─── Init: load profiles from disk ────────────────────────────────────────
   initApp: async () => {
@@ -779,6 +782,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   // ─── UI ───────────────────────────────────────────────────────────────────
   setActiveTab: (tab: AppTab) => set({ activeTab: tab }),
   setShowConnectionDialog: (show) => set({ showConnectionDialog: show }),
+  setHistoryDrawerOpen: (open) => set({ historyDrawerOpen: open }),
 
   setPageSize: async (size) => {
     set({ pageSize: size });

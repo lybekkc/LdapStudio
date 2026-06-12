@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Table, Tag, Typography, Spin, Empty, Switch, Tooltip, Space,
   Button, Input, AutoComplete, Modal, message, Select,
@@ -189,6 +189,39 @@ const EntryDetails: React.FC = () => {
     setShowNewAttr(false);
     setSiblingAnalysis(null);
   };
+
+  // ── Keyboard shortcuts (entry-level) ────────────────────────────────────────
+  const isMac = navigator.platform.toUpperCase().includes("MAC");
+  const isMod = useCallback((e: KeyboardEvent) => isMac ? e.metaKey : e.ctrlKey, [isMac]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!selectedEntry) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inInput = tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable;
+
+      // ⌘E — start edit (when not editing, not in input)
+      if (isMod(e) && e.key === "e" && !isEditing && !isReadOnly && !inInput) {
+        e.preventDefault();
+        startEdit();
+        return;
+      }
+      // ⌘S — save (when editing, even in inputs)
+      if (isMod(e) && e.key === "s" && isEditing) {
+        e.preventDefault();
+        saveEdits();
+        return;
+      }
+      // Escape — cancel edit (when editing, not in a modal)
+      if (e.key === "Escape" && isEditing && !inInput) {
+        e.preventDefault();
+        cancelEdit();
+        return;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedEntry, isEditing, isReadOnly, isMod]);
 
   const updateValue = (attr: string, idx: number, val: string) =>
     setEditMap(prev => {

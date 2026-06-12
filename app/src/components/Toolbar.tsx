@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button, Space, Tag, Tooltip, Typography, Popover, Drawer, Form, InputNumber, Switch, Divider, Modal, Badge } from "antd";
 import {
   ApiOutlined, DisconnectOutlined, DatabaseOutlined,
@@ -6,12 +6,14 @@ import {
   SettingOutlined, TagsOutlined, LockOutlined, UnlockOutlined,
   LoadingOutlined, WifiOutlined, CloseCircleOutlined,
   DownloadOutlined, UploadOutlined, TableOutlined, HistoryOutlined,
+  QuestionCircleOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { MAX_RECONNECT_ATTEMPTS } from "../store/appStore";
 import { LdifExportDialog, LdifImportDialog } from "./LdifDialog";
 import CsvExportDialog from "./CsvExportDialog";
 import UndoHistoryDrawer from "./UndoHistoryDrawer";
+import ShortcutsModal from "./ShortcutsModal";
 import type { AppTab } from "../types";
 
 const { Text } = Typography;
@@ -36,13 +38,22 @@ const Toolbar: React.FC = () => {
     reconnectFailed,
     cancelReconnect,
     undoHistory,
+    historyDrawerOpen,
+    setHistoryDrawerOpen,
   } = useAppStore();
 
   const [settingsOpen,   setSettingsOpen]   = useState(false);
   const [exportOpen,     setExportOpen]     = useState(false);
   const [importOpen,     setImportOpen]     = useState(false);
   const [csvExportOpen,  setCsvExportOpen]  = useState(false);
-  const [historyOpen,    setHistoryOpen]    = useState(false);
+  const [shortcutsOpen,  setShortcutsOpen]  = useState(false);
+
+  // Listen for global "show-shortcuts" event (triggered by "?" key)
+  useEffect(() => {
+    const handler = () => setShortcutsOpen(true);
+    window.addEventListener("show-shortcuts", handler);
+    return () => window.removeEventListener("show-shortcuts", handler);
+  }, []);
 
   const handleUnlock = () => {
     Modal.confirm({
@@ -138,10 +149,10 @@ const Toolbar: React.FC = () => {
             <Button type="text" size="small" icon={<UploadOutlined />}
               onClick={() => setImportOpen(true)} style={{ color: "#ffffffaa" }} />
           </Tooltip>
-          <Tooltip title={`Operation history (${undoHistory.length})`}>
+          <Tooltip title={`Operation history (${undoHistory.length}) — ⌘H`}>
             <Badge count={undoHistory.length} size="small" offset={[-4, 4]}>
               <Button type="text" size="small" icon={<HistoryOutlined />}
-                onClick={() => setHistoryOpen(true)} style={{ color: "#ffffffaa" }} />
+                onClick={() => setHistoryDrawerOpen(true)} style={{ color: "#ffffffaa" }} />
             </Badge>
           </Tooltip>
         </Space>
@@ -153,6 +164,16 @@ const Toolbar: React.FC = () => {
           type="text"
           icon={<SettingOutlined />}
           onClick={() => setSettingsOpen(true)}
+          style={{ color: "#ffffffaa" }}
+        />
+      </Tooltip>
+
+      {/* Keyboard shortcuts */}
+      <Tooltip title="Keyboard shortcuts (?)">
+        <Button
+          type="text"
+          icon={<QuestionCircleOutlined />}
+          onClick={() => setShortcutsOpen(true)}
           style={{ color: "#ffffffaa" }}
         />
       </Tooltip>
@@ -334,7 +355,8 @@ const Toolbar: React.FC = () => {
     <LdifExportDialog open={exportOpen} onClose={() => setExportOpen(false)} />
     <LdifImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
     <CsvExportDialog  open={csvExportOpen} onClose={() => setCsvExportOpen(false)} />
-    <UndoHistoryDrawer open={historyOpen} onClose={() => setHistoryOpen(false)} />
+    <UndoHistoryDrawer open={historyDrawerOpen} onClose={() => setHistoryDrawerOpen(false)} />
+    <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   );
 };

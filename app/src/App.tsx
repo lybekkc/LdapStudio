@@ -7,11 +7,13 @@ import EntryDetails from "./components/EntryDetails";
 import SchemaBrowser from "./components/SchemaBrowser";
 import SearchView from "./components/SearchView";
 import { useAppStore } from "./store/appStore";
+import { useKeyboardShortcuts } from "./utils/useKeyboardShortcuts";
 
 const { Content } = Layout;
 
 const App: React.FC = () => {
   const { activeTab, browserSplitSize, setBrowserSplitSize } = useAppStore();
+  useKeyboardShortcuts();
 
   return (
     <Layout style={{ height: "100vh", overflow: "hidden" }}>
