@@ -119,15 +119,15 @@ jobs:
           releaseBody:  |
             ## LDAP Studio ${{ github.ref_name }}
 
-            ### Nedlasting
-            | Plattform | Fil |
-            |-----------|-----|
+            ### Downloads
+            | Platform | File |
+            |----------|------|
             | macOS (Apple Silicon) | `*_aarch64.dmg` |
             | macOS (Intel)         | `*_x86_64.dmg` |
-            | Windows               | `*_x64-setup.exe` eller `*.msi` |
-            | Linux                 | `*.AppImage` eller `*.deb` |
+            | Windows               | `*_x64-setup.exe` or `*.msi` |
+            | Linux                 | `*.AppImage` or `*.deb` |
 
-            > **macOS**: Høyreklikk → Åpne første gang (appen er ikke App Store-signert).
+            > **macOS**: Right-click → Open the first time (the app is not App Store-signed).
           releaseDraft:   ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease:     false
           args:           ${{ matrix.tauri_args }}
