@@ -181,6 +181,17 @@ export interface SavedSearch {
   scope: string;
 }
 
+// ─── Entry clipboard ──────────────────────────────────────────────────────────
+
+export interface ClipboardEntry {
+  sourceDn:     string;
+  rdnAttr:      string;
+  objectClasses: string[];
+  /** Non-sensitive, non-operational attributes ready to paste */
+  attrs: Array<{ name: string; value: string }>;
+  timestamp: string;
+}
+
 // ─── Undo history ─────────────────────────────────────────────────────────────
 
 export type UndoOperationType = "modify" | "delete" | "add" | "rename" | "schema";

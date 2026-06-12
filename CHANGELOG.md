@@ -17,6 +17,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - DN browser button to pick new parent visually
   - Undo support
 - Schema undo support — ObjectClass and AttributeType create/modify/delete are now tracked in undo history
+- Keyboard shortcuts (`⌘/Ctrl+Z` undo, `⌘/Ctrl+H` history, `⌘/Ctrl+1/2/3` tabs, `⌘/Ctrl+E` edit, `⌘/Ctrl+S` save, `?` show shortcuts)
+- Copy/Paste entries — copy a selected entry to an in-memory clipboard and paste it as a new entry
+  - Passwords and server-generated attributes are excluded from the clipboard
+  - Toolbar shows a visual indicator when clipboard is occupied (golden icon + tooltip with source DN)
+  - `⌘/Ctrl+C` copies the selected entry; `⌘/Ctrl+V` opens New Entry drawer pre-filled with clipboard data
+  - RDN value is intentionally left blank so the user must provide a unique value
 
 ---
 

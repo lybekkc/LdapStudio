@@ -6,7 +6,7 @@ import {
   SettingOutlined, TagsOutlined, LockOutlined, UnlockOutlined,
   LoadingOutlined, WifiOutlined, CloseCircleOutlined,
   DownloadOutlined, UploadOutlined, TableOutlined, HistoryOutlined,
-  QuestionCircleOutlined,
+  QuestionCircleOutlined, CopyOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { MAX_RECONNECT_ATTEMPTS } from "../store/appStore";
@@ -40,6 +40,8 @@ const Toolbar: React.FC = () => {
     undoHistory,
     historyDrawerOpen,
     setHistoryDrawerOpen,
+    clipboardEntry,
+    clearEntryClipboard,
   } = useAppStore();
 
   const [settingsOpen,   setSettingsOpen]   = useState(false);
@@ -155,6 +157,34 @@ const Toolbar: React.FC = () => {
                 onClick={() => setHistoryDrawerOpen(true)} style={{ color: "#ffffffaa" }} />
             </Badge>
           </Tooltip>
+          {clipboardEntry && (
+            <Tooltip title={
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Clipboard — ⌘V to paste</div>
+                <div style={{ fontFamily: "monospace", fontSize: 11, wordBreak: "break-all" }}>
+                  {clipboardEntry.sourceDn}
+                </div>
+                <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>
+                  {clipboardEntry.objectClasses.join(", ")}
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4 }}>
+                  <span
+                    style={{ cursor: "pointer", textDecoration: "underline" }}
+                    onClick={clearEntryClipboard}
+                  >
+                    Clear clipboard
+                  </span>
+                </div>
+              </div>
+            }>
+              <Badge dot color="#faad14" offset={[-4, 4]}>
+                <Button
+                  type="text" size="small" icon={<CopyOutlined />}
+                  style={{ color: "#faad14" }}
+                />
+              </Badge>
+            </Tooltip>
+          )}
         </Space>
       )}
 

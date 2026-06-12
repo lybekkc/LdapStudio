@@ -6,7 +6,7 @@ import {
 import {
   PlusOutlined, DeleteOutlined, ThunderboltOutlined,
   ReloadOutlined, BookOutlined, CaretDownOutlined, CaretRightOutlined,
-  LockOutlined,
+  LockOutlined, CopyOutlined,
 } from "@ant-design/icons";
 import { v4 as uuidv4 } from "uuid";
 import { useAppStore } from "../store/appStore";
@@ -16,7 +16,7 @@ import {
   isPasswordAttr, isAlreadyHashed,
   hashLdapPassword, HASH_SCHEME_OPTIONS, type HashScheme,
 } from "../utils/ldapPassword";
-import type { LdapMod, SiblingAnalysis, RdnPattern } from "../types";
+import type { LdapMod, SiblingAnalysis, RdnPattern, ClipboardEntry } from "../types";
 
 const { Text } = Typography;
 
@@ -25,9 +25,11 @@ interface Props {
   parentDn:  string;
   onClose:   () => void;
   onCreated: (dn: string) => void;
+  /** If provided, pre-fill the form with this clipboard content */
+  prefill?: ClipboardEntry | null;
 }
 
-const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClose, onCreated }) => {
+const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClose, onCreated, prefill }) => {
   const { schema, addEntry } = useAppStore();
 
   const [parentDn,    setParentDn]    = useState(initialParent);
@@ -50,13 +52,26 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
   useEffect(() => {
     if (open) {
       setParentDn(initialParent);
-      setRdnAttr("cn");
-      setRdnValue("");
-      setSelectedOcs([]);
-      setOcInput("");
-      setAttrValues(new Map());
-      setAnalysis(null);
-      runAnalysis(initialParent);
+      if (prefill) {
+        // Pre-fill from clipboard
+        setRdnAttr(prefill.rdnAttr);
+        setRdnValue("");  // user must provide a unique new RDN value
+        setSelectedOcs([...prefill.objectClasses]);
+        const m = new Map<string, string>();
+        for (const { name, value } of prefill.attrs) m.set(name, value);
+        setAttrValues(m);
+        setAnalysis(null);
+        // Still run analysis so frequency hints are available
+        runAnalysis(initialParent);
+      } else {
+        setRdnAttr("cn");
+        setRdnValue("");
+        setSelectedOcs([]);
+        setOcInput("");
+        setAttrValues(new Map());
+        setAnalysis(null);
+        runAnalysis(initialParent);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialParent]);
@@ -250,6 +265,27 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
       }
     >
       <Form layout="vertical" size="small">
+
+        {/* ── Clipboard prefill banner ───────────────────────────────────── */}
+        {prefill && (
+          <div style={{
+            marginBottom: 12, padding: "8px 12px",
+            background: "#fffbe6", border: "1px solid #ffe58f", borderRadius: 6,
+            display: "flex", alignItems: "flex-start", gap: 8,
+          }}>
+            <CopyOutlined style={{ color: "#d48806", marginTop: 2, flexShrink: 0 }} />
+            <div>
+              <Text style={{ fontSize: 12, fontWeight: 600, color: "#d48806" }}>Pasting from clipboard</Text>
+              <br />
+              <Text code style={{ fontSize: 11, wordBreak: "break-all" }}>{prefill.sourceDn}</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {prefill.objectClasses.length} objectClasses · {prefill.attrs.length} attributes copied
+                {" · "}passwords and unique attributes excluded
+              </Text>
+            </div>
+          </div>
+        )}
 
         {/* ── Parent DN ─────────────────────────────────────────────────── */}
         <Form.Item label="Parent DN">

@@ -7,6 +7,7 @@ import {
   CopyOutlined, CaretDownOutlined, CaretRightOutlined,
   EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined,
   PlusOutlined, BulbOutlined, BookOutlined, LockOutlined, SwapOutlined,
+  ScissorOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
@@ -106,7 +107,8 @@ function computeOcMods(original: string[], edited: string[]): LdapMod[] {
 
 const EntryDetails: React.FC = () => {
   const { selectedDn, selectedEntry, entryLoading, schema,
-          modifyEntry, deleteEntry, activeProfile, writeUnlocked } = useAppStore();
+          modifyEntry, deleteEntry, activeProfile, writeUnlocked,
+          copyEntryToClipboard, clipboardEntry } = useAppStore();
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
   const [showOperational, setShowOperational] = useState(false);
   const [ocExpanded, setOcExpanded]           = useState(true);
@@ -381,6 +383,14 @@ const EntryDetails: React.FC = () => {
                 </Tooltip>
                 <Tooltip title={isReadOnly ? "Read-only" : "Rename / Move entry"}>
                   <Button size="small" icon={<SwapOutlined />} onClick={() => setRenameOpen(true)} disabled={isReadOnly} />
+                </Tooltip>
+                <Tooltip title={clipboardEntry?.sourceDn === selectedEntry.dn ? "Copied! (⌘V to paste)" : "Copy entry to clipboard (⌘C)"}>
+                  <Button
+                    size="small"
+                    icon={<ScissorOutlined />}
+                    onClick={() => copyEntryToClipboard(selectedEntry)}
+                    style={clipboardEntry?.sourceDn === selectedEntry.dn ? { color: "#faad14" } : undefined}
+                  />
                 </Tooltip>
                 <Tooltip title={isReadOnly ? "Read-only — lås opp i verktøylinjen for å slette" : "Slett entry"}>
                   <Button size="small" icon={<DeleteOutlined />} danger onClick={confirmDelete} disabled={isReadOnly} />

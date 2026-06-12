@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Store } from "@tauri-apps/plugin-store";
 import type {
   AppTab, ConnectionProfile, LdapEntry, LdapMod,
-  NewEntry, SavedSearch, SchemaInfo, ServerInfo, UndoRecord,
+  NewEntry, SavedSearch, SchemaInfo, ServerInfo, UndoRecord, ClipboardEntry,
 } from "../types";
 import * as api from "../api/commands";
 
@@ -56,6 +56,19 @@ const SENSITIVE_ATTRS = new Set([
   "userpassword", "unicodepwd", "sambantpassword", "sambalmpassword",
   "authpassword", "cleartextpassword", "password",
 ]);
+
+/** Attributes never copied to clipboard */
+const SKIP_ON_COPY = new Set([
+  // Server-generated unique / operational
+  "entryuuid", "entrydn", "createtimestamp", "modifytimestamp",
+  "creatorsname", "modifiersname", "structuralobjectclass",
+  "subschemasubentry", "hassubordinates", "numsubordinates",
+  "pwdchangedtime", "pwdaccountlockedtime", "pwdfailuretime",
+  "ds-pwp-password-policy-dn",
+  // Passwords
+  ...Array.from(SENSITIVE_ATTRS),
+]);
+
 
 async function loadUndoRecords(profileId: string): Promise<UndoRecord[]> {
   const store = await Store.load(`undo-${profileId}.json`);
@@ -237,6 +250,10 @@ interface AppStore {
   setShowConnectionDialog: (show: boolean) => void;
   historyDrawerOpen: boolean;
   setHistoryDrawerOpen: (open: boolean) => void;
+  // ─── Entry clipboard ────────────────────────────────────────────────────────
+  clipboardEntry: ClipboardEntry | null;
+  copyEntryToClipboard: (entry: LdapEntry) => void;
+  clearEntryClipboard: () => void;
 }
 
 // ─── Store implementation ─────────────────────────────────────────────────────
@@ -282,6 +299,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   showConnectionDialog: true,
   undoHistory: [],
   historyDrawerOpen: false,
+  clipboardEntry: null,
 
   // ─── Init: load profiles from disk ────────────────────────────────────────
   initApp: async () => {
@@ -783,6 +801,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveTab: (tab: AppTab) => set({ activeTab: tab }),
   setShowConnectionDialog: (show) => set({ showConnectionDialog: show }),
   setHistoryDrawerOpen: (open) => set({ historyDrawerOpen: open }),
+
+  copyEntryToClipboard: (entry) => {
+    const rdnAttr = entry.dn.split(",")[0]?.split("=")[0] ?? "cn";
+    const objectClasses = entry.attributes
+      .find(a => a.name.toLowerCase() === "objectclass")?.values ?? [];
+    const attrs = entry.attributes
+      .filter(a =>
+        a.name.toLowerCase() !== "objectclass" &&
+        !a.isOperational &&
+        !SKIP_ON_COPY.has(a.name.toLowerCase())
+      )
+      .map(a => ({ name: a.name, value: a.values[0] ?? "" }));
+    set({
+      clipboardEntry: {
+        sourceDn: entry.dn,
+        rdnAttr,
+        objectClasses,
+        attrs,
+        timestamp: new Date().toISOString(),
+      },
+    });
+  },
+
+  clearEntryClipboard: () => set({ clipboardEntry: null }),
 
   setPageSize: async (size) => {
     set({ pageSize: size });

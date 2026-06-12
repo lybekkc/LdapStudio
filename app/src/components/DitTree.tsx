@@ -57,10 +57,12 @@ function makeMoreNode(parentDn: string, count: number): DataNode {
 
 const DitTree: React.FC = () => {
   const { serverInfo, loadChildren, loadMoreChildren, selectEntry, selectedDn, pageSize,
-          showOcBrowser, setShowOcBrowser, lastDeletedDn, activeProfile, writeUnlocked } = useAppStore();
+          showOcBrowser, setShowOcBrowser, lastDeletedDn, activeProfile, writeUnlocked,
+          clipboardEntry } = useAppStore();
   const [treeData, setTreeData] = useState<DataNode[]>([]);
   const [loading, setLoading]   = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [pasteDrawerOpen, setPasteDrawerOpen] = useState(false);
 
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
 
@@ -102,6 +104,15 @@ const DitTree: React.FC = () => {
       setTreeData(prev => clearChildren(prev, parentDn));
     }
   }, [lastDeletedDn]);
+
+  // Listen for paste-entry event (fired by ⌘V keyboard shortcut)
+  useEffect(() => {
+    const handler = () => {
+      if (clipboardEntry) setPasteDrawerOpen(true);
+    };
+    window.addEventListener("paste-entry", handler);
+    return () => window.removeEventListener("paste-entry", handler);
+  }, [clipboardEntry]);
 
   // Load children for a node (called by Ant Tree when expanding)
   // showOc NOT in deps — titles are rendered by DitNodeTitle via context
@@ -199,9 +210,10 @@ const DitTree: React.FC = () => {
       </div>
 
       <NewEntryDrawer
-        open={newEntryOpen}
+        open={newEntryOpen || pasteDrawerOpen}
         parentDn={newEntryParent}
-        onClose={() => setNewEntryOpen(false)}
+        prefill={pasteDrawerOpen ? clipboardEntry : null}
+        onClose={() => { setNewEntryOpen(false); setPasteDrawerOpen(false); }}
         onCreated={(dn) => {
           // Reload the parent node so the new entry appears
           const parent = dn.substring(dn.indexOf(",") + 1);

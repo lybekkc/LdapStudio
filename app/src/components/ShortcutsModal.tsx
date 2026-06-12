@@ -20,6 +20,8 @@ const shortcuts = [
   { category: "Entry",         key: `${mod}+E`,      action: "Edit selected entry"      },
   { category: "Entry",         key: `${mod}+S`,      action: "Save changes (edit mode)" },
   { category: "Entry",         key: `${mod}+N`,      action: "New entry (browser tab)"  },
+  { category: "Entry",         key: `${mod}+C`,      action: "Copy selected entry to clipboard" },
+  { category: "Entry",         key: `${mod}+V`,      action: "Paste entry (open New Entry drawer pre-filled)" },
   { category: "Entry",         key: `Escape`,        action: "Cancel edit mode"         },
 ];
 

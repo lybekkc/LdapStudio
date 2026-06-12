@@ -17,6 +17,7 @@ export function useKeyboardShortcuts() {
   const {
     connected, activeTab, setActiveTab,
     undoHistory, performUndo, setHistoryDrawerOpen,
+    selectedEntry, copyEntryToClipboard, clipboardEntry,
   } = useAppStore();
 
   useEffect(() => {
@@ -42,6 +43,17 @@ export function useKeyboardShortcuts() {
         setHistoryDrawerOpen(true);
         return;
       }
+      if (isMod(e) && !e.shiftKey && e.key === 'c' && connected && selectedEntry) {
+        e.preventDefault();
+        copyEntryToClipboard(selectedEntry);
+        message.success('Entry copied to clipboard');
+        return;
+      }
+      if (isMod(e) && !e.shiftKey && e.key === 'v' && connected && clipboardEntry) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('paste-entry'));
+        return;
+      }
       if (e.key === '?' && !isMod(e)) {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('show-shortcuts'));
@@ -50,5 +62,6 @@ export function useKeyboardShortcuts() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [connected, activeTab, undoHistory, performUndo, setActiveTab, setHistoryDrawerOpen]);
+  }, [connected, activeTab, undoHistory, performUndo, setActiveTab, setHistoryDrawerOpen,
+      selectedEntry, copyEntryToClipboard, clipboardEntry]);
 }
