@@ -9,6 +9,20 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.6.0] - 2026-06-12
+
+### Added
+- Profile name shown as a **colored badge** in the toolbar — each profile gets a stable, automatically assigned color so it is easy to tell environments apart at a glance
+- Window title updates to `«Profile name» — LDAP Studio` when connected, making it easy to distinguish multiple running instances (e.g. in the macOS Dock)
+- Server Info popover (ℹ) now shows profile name, host:port and active base DN
+- **F5** keyboard shortcut refreshes the DIT tree; a refresh button (↺) is also available in the tree toolbar
+- **Saved searches are now per connection profile** — stored in `searches-{profileId}.json`, loaded on connect and cleared on disconnect (same pattern as undo history)
+
+### Fixed
+- DIT tree did not recover after deleting an entry — the parent node now automatically reloads its children immediately after a deletion instead of leaving the tree empty
+
+---
+
 ## [0.5.0] - 2026-06-12
 
 ### Added
