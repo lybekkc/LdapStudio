@@ -181,3 +181,21 @@ export interface SavedSearch {
   scope: string;
 }
 
+// ─── Undo history ─────────────────────────────────────────────────────────────
+
+export type UndoOperationType = "modify" | "delete" | "add";
+
+export interface UndoRecord {
+  id: string;
+  timestamp: string;       // ISO 8601
+  dn: string;
+  description: string;     // human-readable summary
+  operationType: UndoOperationType;
+  /** For undo of modify: mods that restore previous attribute values */
+  inverseMods?: LdapMod[];
+  /** For undo of delete: full entry snapshot to re-add (password attrs excluded) */
+  snapshot?: { dn: string; attributes: Array<{ name: string; values: string[] }> };
+  /** True if one or more password attributes were skipped in the snapshot */
+  hasRedactedAttrs?: boolean;
+}
+

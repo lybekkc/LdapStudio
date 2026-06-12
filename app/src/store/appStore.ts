@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Store } from "@tauri-apps/plugin-store";
 import type {
   AppTab, ConnectionProfile, LdapEntry, LdapMod,
-  NewEntry, SavedSearch, SchemaInfo, ServerInfo,
+  NewEntry, SavedSearch, SchemaInfo, ServerInfo, UndoRecord,
 } from "../types";
 import * as api from "../api/commands";
 
@@ -46,6 +46,27 @@ const STORE_FILE   = "profiles.json";
 const PROFILES_KEY = "profiles";
 const SEARCHES_KEY = "savedSearches";
 const SETTINGS_KEY = "settings";
+
+// ─── Per-profile undo history helpers ────────────────────────────────────────
+
+const UNDO_MAX_RECORDS = 100;
+
+/** Password-like attributes we never store in snapshots */
+const SENSITIVE_ATTRS = new Set([
+  "userpassword", "unicodepwd", "sambantpassword", "sambalmpassword",
+  "authpassword", "cleartextpassword", "password",
+]);
+
+async function loadUndoRecords(profileId: string): Promise<UndoRecord[]> {
+  const store = await Store.load(`undo-${profileId}.json`);
+  return (await store.get<UndoRecord[]>("history")) ?? [];
+}
+
+async function saveUndoRecords(profileId: string, records: UndoRecord[]): Promise<void> {
+  const store = await Store.load(`undo-${profileId}.json`);
+  await store.set("history", records.slice(0, UNDO_MAX_RECORDS));
+  await store.save();
+}
 
 interface PersistedSettings {
   pageSize: number;
@@ -182,6 +203,14 @@ interface AppStore {
   saveSearch: (s: SavedSearch) => Promise<void>;
   removeSavedSearch: (id: string) => Promise<void>;
 
+  // ─── Undo history ──────────────────────────────────────────────────────────
+  undoHistory: UndoRecord[];
+  loadUndoHistory: () => Promise<void>;
+  pushUndo: (record: UndoRecord) => Promise<void>;
+  performUndo: (id: string) => Promise<void>;
+  removeUndoRecord: (id: string) => Promise<void>;
+  clearUndoHistory: () => Promise<void>;
+
   setPageSize: (size: number) => Promise<void>;
   showOcBrowser: boolean;
   showOcSearch: boolean;
@@ -240,6 +269,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   activeTab: "browser",
   showConnectionDialog: true,
+  undoHistory: [],
 
   // ─── Init: load profiles from disk ────────────────────────────────────────
   initApp: async () => {
@@ -274,6 +304,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
             reconnecting: false, reconnectAttempt: 0,
             reconnectFailed: false, reconnectIn: 0 });
       get().startKeepalive();
+      // Load undo history for this profile
+      await get().loadUndoHistory();
     } catch (e) {
       set({ connectionError: String(e) });
     } finally {
@@ -300,6 +332,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       reconnectAttempt: 0,
       reconnectFailed: false,
       reconnectIn: 0,
+      undoHistory: [],
     });
   },
 
@@ -414,20 +447,84 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   modifyEntry: async (dn, mods) => {
+    const profileId = get().activeProfile?.id;
+    const currentEntry = get().selectedEntry;
+
+    // Capture inverse mods (restore old values) before writing
+    if (profileId && currentEntry) {
+      const inverseMods: LdapMod[] = [];
+      let hasRedacted = false;
+      for (const mod of mods) {
+        if (SENSITIVE_ATTRS.has(mod.attr.toLowerCase())) { hasRedacted = true; continue; }
+        const existing = currentEntry.attributes.find(
+          a => a.name.toLowerCase() === mod.attr.toLowerCase()
+        );
+        inverseMods.push({ op: "REPLACE", attr: mod.attr, values: existing?.values ?? [] });
+      }
+      if (inverseMods.length > 0) {
+        const record: UndoRecord = {
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          dn,
+          description: `Modified ${inverseMods.map(m => m.attr).join(", ")}`,
+          operationType: "modify",
+          inverseMods,
+          hasRedactedAttrs: hasRedacted,
+        };
+        await get().pushUndo(record);
+      }
+    }
+
     await api.modifyEntry(dn, mods);
-    // Reload the entry to show updated values
     const entry = await api.getEntry(dn);
     set({ selectedEntry: entry });
   },
 
   deleteEntry: async (dn) => {
+    const profileId = get().activeProfile?.id;
+    const currentEntry = get().selectedEntry ?? await api.getEntry(dn).catch(() => null);
+
+    if (profileId && currentEntry) {
+      let hasRedacted = false;
+      const attrs = currentEntry.attributes
+        .filter(a => !a.isOperational)
+        .filter(a => {
+          if (SENSITIVE_ATTRS.has(a.name.toLowerCase())) { hasRedacted = true; return false; }
+          return true;
+        })
+        .map(a => ({ name: a.name, values: a.values }));
+
+      const record: UndoRecord = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        dn,
+        description: `Deleted entry`,
+        operationType: "delete",
+        snapshot: { dn, attributes: attrs },
+        hasRedactedAttrs: hasRedacted,
+      };
+      await get().pushUndo(record);
+    }
+
     await api.deleteEntry(dn);
     set({ selectedDn: null, selectedEntry: null, lastDeletedDn: dn });
   },
 
   addEntry: async (entry) => {
     await api.addEntry(entry);
-    // Select the newly created entry
+
+    const profileId = get().activeProfile?.id;
+    if (profileId) {
+      const record: UndoRecord = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        dn: entry.dn,
+        description: `Created entry`,
+        operationType: "add",
+      };
+      await get().pushUndo(record);
+    }
+
     const loaded = await api.getEntry(entry.dn);
     set({ selectedDn: entry.dn, selectedEntry: loaded });
   },
@@ -533,6 +630,65 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const updated = get().savedSearches.filter((s) => s.id !== id);
     set({ savedSearches: updated });
     await persistSearches(updated);
+  },
+
+  // ─── Undo history ─────────────────────────────────────────────────────────
+  loadUndoHistory: async () => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
+    const records = await loadUndoRecords(profileId);
+    set({ undoHistory: records });
+  },
+
+  pushUndo: async (record) => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
+    const updated = [record, ...get().undoHistory].slice(0, UNDO_MAX_RECORDS);
+    set({ undoHistory: updated });
+    await saveUndoRecords(profileId, updated);
+  },
+
+  performUndo: async (id) => {
+    const record = get().undoHistory.find(r => r.id === id);
+    if (!record) return;
+
+    if (record.operationType === "modify" && record.inverseMods) {
+      await api.modifyEntry(record.dn, record.inverseMods);
+      // Reload if this is the currently selected entry
+      if (get().selectedDn === record.dn) {
+        const entry = await api.getEntry(record.dn);
+        set({ selectedEntry: entry });
+      }
+    } else if (record.operationType === "delete" && record.snapshot) {
+      const { dn, attributes } = record.snapshot;
+      await api.addEntry({
+        dn,
+        attributes: attributes.map(a => ({ op: "ADD" as const, attr: a.name, values: a.values })),
+      });
+    } else if (record.operationType === "add") {
+      await api.deleteEntry(record.dn);
+      if (get().selectedDn === record.dn) {
+        set({ selectedDn: null, selectedEntry: null });
+      }
+    }
+
+    // Remove the record after successful undo
+    await get().removeUndoRecord(id);
+  },
+
+  removeUndoRecord: async (id) => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
+    const updated = get().undoHistory.filter(r => r.id !== id);
+    set({ undoHistory: updated });
+    await saveUndoRecords(profileId, updated);
+  },
+
+  clearUndoHistory: async () => {
+    const profileId = get().activeProfile?.id;
+    if (!profileId) return;
+    set({ undoHistory: [] });
+    await saveUndoRecords(profileId, []);
   },
 
   // ─── UI ───────────────────────────────────────────────────────────────────
