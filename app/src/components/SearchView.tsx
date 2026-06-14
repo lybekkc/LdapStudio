@@ -213,26 +213,19 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
   const [form] = Form.useForm<{ name: string; baseDn: string; filter: string; scope: string }>();
   const [dnPickerOpen, setDnPickerOpen] = useState(false);
   const { loadChildren, serverInfo } = useAppStore();
+  const [filterVal, setFilterVal] = useState(initial.filter);
 
   // MiniDitTree state scoped to this modal
-  const [treeData, setTreeData] = useState<DataNode[]>([]);
-  const loadedKeys = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!open) return;
-    loadedKeys.current.clear();
+  const [treeData, setTreeData] = useState<DataNode[]>(() => {
     if (serverInfo?.namingContexts?.length) {
-      setTreeData(serverInfo.namingContexts.map((nc) => ({ key: nc, title: nc, isLeaf: false })));
-    } else if (serverInfo?.activeBaseDn) {
-      setTreeData([{ key: serverInfo.activeBaseDn, title: serverInfo.activeBaseDn, isLeaf: false }]);
+      return serverInfo.namingContexts.map((nc) => ({ key: nc, title: nc, isLeaf: false }));
     }
-    form.setFieldsValue({
-      name:   initial.name ?? "",
-      baseDn: initial.baseDn,
-      filter: initial.filter,
-      scope:  initial.scope,
-    });
-  }, [open, initial, form, serverInfo]);
+    if (serverInfo?.activeBaseDn) {
+      return [{ key: serverInfo.activeBaseDn, title: serverInfo.activeBaseDn, isLeaf: false }];
+    }
+    return [];
+  });
+  const loadedKeys = useRef<Set<string>>(new Set());
 
   const onLoadData = useCallback(async (node: DataNode) => {
     const dn = node.key as string;
@@ -266,9 +259,20 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
       okText={isEdit ? "Oppdater" : "Lagre"}
       cancelText="Avbryt"
       width={460}
-      destroyOnHidden
+      destroyOnClose
     >
-      <Form form={form} layout="vertical" size="small" onFinish={handleOk}>
+      <Form
+        form={form}
+        layout="vertical"
+        size="small"
+        onFinish={handleOk}
+        initialValues={{
+          name:   initial.name ?? "",
+          baseDn: initial.baseDn,
+          filter: initial.filter,
+          scope:  initial.scope,
+        }}
+      >
 
         <Form.Item name="name" label="Navn">
           <Input
@@ -320,13 +324,13 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
 
         <Form.Item name="filter" label="Filter" rules={[{ required: true }]}>
           <AutoComplete
-            options={buildFilterOptions(form.getFieldValue("filter") ?? "", schema)}
+            options={buildFilterOptions(filterVal, schema)}
             style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
             filterOption={false}
+            onChange={setFilterVal}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleOk(); } }}
-          >
-            <Input placeholder="(objectClass=*)" style={{ fontFamily: "monospace", fontSize: 12 }} />
-          </AutoComplete>
+            placeholder="(objectClass=*)"
+          />
         </Form.Item>
 
       </Form>
@@ -674,6 +678,7 @@ const SearchView: React.FC = () => {
 
       {/* ── Save / Edit search modal ──────────────────────────────────────── */}
       <SaveSearchModal
+        key={editingSearch ? `edit-${editingSearch.id}` : "new"}
         open={saveModalOpen}
         initial={modalInitial}
         schema={schema}
