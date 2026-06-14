@@ -108,11 +108,11 @@ const ColumnSelector: React.FC<ColSelectorProps> = ({ available, selected, onCha
       {/* Available columns */}
       <div style={{ flex: 1, border: "1px solid #d9d9d9", borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "4px 8px", background: "#fafafa", borderBottom: "1px solid #f0f0f0", fontSize: 11 }}>
-          <span style={{ color: "#888" }}>Tilgjengelige attributter</span>
-          <Button type="link" size="small" style={{ float: "right", fontSize: 11, padding: 0 }} onClick={selectAll}>Velg alle</Button>
+          <span style={{ color: "#888" }}>Available attributes</span>
+          <Button type="link" size="small" style={{ float: "right", fontSize: 11, padding: 0 }} onClick={selectAll}>Select all</Button>
         </div>
         <Input
-          size="small" placeholder="Søk…" value={search}
+          size="small" placeholder="Search…" value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ margin: "4px 6px", width: "calc(100% - 12px)" }}
         />
@@ -130,18 +130,18 @@ const ColumnSelector: React.FC<ColSelectorProps> = ({ available, selected, onCha
       {/* Selected columns (ordered) */}
       <div style={{ flex: 1, border: "1px solid #d9d9d9", borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "4px 8px", background: "#fafafa", borderBottom: "1px solid #f0f0f0", fontSize: 11 }}>
-          <span style={{ color: "#888" }}>Valgte kolonner ({selected.length})</span>
-          <Button type="link" size="small" style={{ float: "right", fontSize: 11, padding: 0 }} onClick={clearAll}>Fjern alle</Button>
+          <span style={{ color: "#888" }}>Selected columns ({selected.length})</span>
+          <Button type="link" size="small" style={{ float: "right", fontSize: 11, padding: 0 }} onClick={clearAll}>Remove all</Button>
         </div>
         <div style={{ flex: 1, overflow: "auto", padding: "0 4px" }}>
           {selected.map((col, idx) => (
             <div key={col} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px" }}>
               <Text style={{ fontFamily: "monospace", fontSize: 11, flex: 1 }}>{col}</Text>
-              <Tooltip title="Flytt opp">
+              <Tooltip title="Move up">
                 <Button type="text" size="small" disabled={idx === 0}
                   icon={<ArrowUpOutlined />} onClick={() => move(col, -1)} style={{ padding: "0 2px" }} />
               </Tooltip>
-              <Tooltip title="Flytt ned">
+              <Tooltip title="Move down">
                 <Button type="text" size="small" disabled={idx === selected.length - 1}
                   icon={<ArrowDownOutlined />} onClick={() => move(col, 1)} style={{ padding: "0 2px" }} />
               </Tooltip>
@@ -217,7 +217,7 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
       setSelectedCols(priority.length > 0 ? priority : rest);
       setStep("columns");
     } catch (e) {
-      message.error(`Feil: ${e}`);
+      message.error(`Error: ${e}`);
     } finally {
       setFetching(false);
     }
@@ -285,19 +285,19 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
       footer={
         step === "config" ? (
           <Space>
-            <Button onClick={handleClose}>Avbryt</Button>
+            <Button onClick={handleClose}>Cancel</Button>
             <Button type="primary" loading={fetching} onClick={handleFetch} icon={<DownloadOutlined />}>
-              Hent data ({fetchedData ? "oppdater" : "last inn"})
+              Fetch data ({fetchedData ? "refresh" : "load"})
             </Button>
           </Space>
         ) : (
           <Space>
-            <Button onClick={() => setStep("config")}>← Endre søk</Button>
+            <Button onClick={() => setStep("config")}>← Change query</Button>
             <Button icon={<DownloadOutlined />} onClick={() => handleDownload("csv")}>
-              Last ned CSV
+              Download CSV
             </Button>
             <Button type="primary" icon={<TableOutlined />} onClick={() => handleDownload("xlsx")}>
-              Last ned Excel (.xlsx)
+              Download Excel (.xlsx)
             </Button>
           </Space>
         )
@@ -340,10 +340,10 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
           </Space>
 
           <Space align="start" size={24} wrap>
-            <Form.Item label="Maks antall entries">
+            <Form.Item label="Max entries">
               <Space>
                 <Form.Item name="limitAll" valuePropName="checked" noStyle>
-                  <Switch size="small" checkedChildren="Alle" unCheckedChildren="Antall" />
+                  <Switch size="small" checkedChildren="All" unCheckedChildren="Limit" />
                 </Form.Item>
                 <Form.Item
                   noStyle
@@ -358,33 +358,33 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
               </Space>
             </Form.Item>
 
-            <Form.Item name="includeOperational" label="Operasjonelle attr." valuePropName="checked">
+            <Form.Item name="includeOperational" label="Operational attrs." valuePropName="checked">
               <Switch size="small" />
             </Form.Item>
 
-            <Form.Item name="includeDn" label="Inkluder DN-kolonne" valuePropName="checked">
+            <Form.Item name="includeDn" label="Include DN column" valuePropName="checked">
               <Switch size="small" />
             </Form.Item>
           </Space>
 
           <Form.Item
             name="multiDelim"
-            label="Flerverdi-separator"
-            extra="Attributter med flere verdier slås sammen med dette tegnet"
+            label="Multi-value separator"
+            extra="Attributes with multiple values are joined with this character"
           >
             <Select style={{ width: 180 }} options={[
-              { value: ";",  label: "; (semikolon)"      },
-              { value: "|",  label: "| (pipe)"           },
-              { value: ", ", label: ", (komma+mellomrom)" },
-              { value: "\n", label: "Linjeskift (kun XLSX)" },
+              { value: ";",  label: "; (semicolon)"       },
+              { value: "|",  label: "| (pipe)"            },
+              { value: ", ", label: ", (comma+space)"      },
+              { value: "\n", label: "Newline (XLSX only)"  },
             ]} />
           </Form.Item>
 
           {fetchedData && (
             <Alert
               type="success" showIcon
-              message={`${fetchedData.length} entries lastet — gå videre for å velge kolonner`}
-              action={<Button size="small" onClick={() => setStep("columns")}>Velg kolonner →</Button>}
+              message={`${fetchedData.length} entries loaded — proceed to select columns`}
+              action={<Button size="small" onClick={() => setStep("columns")}>Select columns →</Button>}
             />
           )}
         </Form>
@@ -393,8 +393,8 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
           {fetchedData && (
             <div style={{ marginBottom: 8 }}>
               <Tag color="blue">{fetchedData.length} entries</Tag>
-              <Tag color="green">{availableAttrs.length} attributter funnet</Tag>
-              <Tag color="orange">{selectedCols.length} kolonner valgt</Tag>
+              <Tag color="green">{availableAttrs.length} attributes found</Tag>
+              <Tag color="orange">{selectedCols.length} columns selected</Tag>
             </div>
           )}
 
@@ -407,7 +407,7 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
           {/* Preview table */}
           {selectedCols.length > 0 && fetchedData && fetchedData.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <Text type="secondary" style={{ fontSize: 11 }}>Forhåndsvisning (3 rader):</Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>Preview (3 rows):</Text>
               <div style={{ marginTop: 4, overflow: "auto" }}>
                 <table style={{ borderCollapse: "collapse", fontSize: 11, width: "100%" }}>
                   <thead>
@@ -447,4 +447,3 @@ const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEnt
 };
 
 export default CsvExportDialog;
-

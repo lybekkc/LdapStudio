@@ -9,6 +9,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.9.0] - 2026-06-14
+
+### Added
+- **Enterprise base OID (PEN) per connection profile** — enter your IANA Private Enterprise Number prefix (e.g. `1.3.6.1.4.1.53391`) in the connection form; object classes and attributes whose OID starts with that prefix are marked as custom. Visual breakdown in the help text explains the OID structure and links to the IANA Enterprise Numbers registry
+- **Help system** — 📖 button in the toolbar (and `F1` shortcut) opens a 6-tab reference: Getting Started, Browser, Search, Schema, Import/Export, Shortcuts
+- **Custom schema LDIF export** — "Export custom schema" button in the Schema Browser toolbar generates a ready-to-import LDIF file with all your custom attribute types and object classes (in dependency order). Preview the LDIF in-app, copy to clipboard or save directly to a `.ldif` file
+
+### Fixed
+- **Page size button** — `window.prompt()` is blocked in Tauri's WebView; replaced with an Ant Design Popover + InputNumber so changing the page size actually works
+- **Enterprise OID validation fires too early** — `validateTrigger` changed to `onBlur` so the "invalid OID" error no longer shows while you are still typing
+
+### Changed
+- **Full English UI** — all Norwegian text in the application has been translated to English (component labels, tooltips, error messages, help text, placeholders)
+- Enterprise OID field placeholder and help text now clearly explain that the PEN root (e.g. `1.3.6.1.4.1.NNNNN`) should be entered, not a deeper sub-arc; the Schema Browser banner shows the active matching pattern (`OIDs starting with prefix.*`)
+
+---
+
 ## [0.8.0] - 2026-06-14
 
 ### Added

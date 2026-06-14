@@ -118,7 +118,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
       }
       return m;
     });
-    message.success(`Lagt til ${topOcs.length} objectClasses og ${topAttrs.length} attributter`);
+    message.success(`Added ${topOcs.length} objectClasses and ${topAttrs.length} attributes`);
   };
 
   const previewDn = rdnValue.trim()
@@ -157,10 +157,10 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
   const rdnValueTypeLabel = (p: RdnPattern): string => {
     switch (p.valueType) {
       case "UUID":      return "UUID";
-      case "NUMBER":    return "Tall";
-      case "EMAIL":     return "E-post";
+      case "NUMBER":    return "Number";
+      case "EMAIL":     return "Email";
       case "DN":        return "DN";
-      case "FREE_TEXT": return "Tekst";
+      case "FREE_TEXT": return "Text";
     }
   };
 
@@ -184,14 +184,14 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
   // ── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
-    if (!rdnValue.trim())         { message.error("RDN-verdi er påkrevd"); return; }
-    if (!parentDn.trim())          { message.error("Parent DN er påkrevd"); return; }
-    if (selectedOcs.length === 0)  { message.error("Minst én objectClass er påkrevd"); return; }
+    if (!rdnValue.trim())         { message.error("RDN value is required"); return; }
+    if (!parentDn.trim())          { message.error("Parent DN is required"); return; }
+    if (selectedOcs.length === 0)  { message.error("At least one objectClass is required"); return; }
 
     for (const attr of mustAttrs) {
       if (attr === rdnAttr) continue;
       if (!(attrValues.get(attr) ?? "").trim()) {
-        message.error(`Påkrevd attributt "${attr}" mangler verdi`);
+        message.error(`Required attribute "${attr}" is missing a value`);
         return;
       }
     }
@@ -222,11 +222,11 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
     setSubmitting(true);
     try {
       await addEntry({ dn, attributes: processedAttrs });
-      message.success("Entry opprettet");
+      message.success("Entry created");
       onCreated(dn);
       onClose();
     } catch (e) {
-      message.error(`Feil: ${e}`);
+      message.error(`Error: ${e}`);
     } finally {
       setSubmitting(false);
     }
@@ -248,7 +248,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
 
   return (
     <Drawer
-      title={<span><PlusOutlined style={{ marginRight: 8, color: "#1677ff" }} />Opprett ny entry</span>}
+      title={<span><PlusOutlined style={{ marginRight: 8, color: "#1677ff" }} />Create new entry</span>}
       placement="right"
       width={460}
       open={open}
@@ -256,9 +256,9 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
       footer={
         <div style={{ textAlign: "right" }}>
           <Space>
-            <Button onClick={onClose}>Avbryt</Button>
+            <Button onClick={onClose}>Cancel</Button>
             <Button type="primary" loading={submitting} onClick={handleSubmit}>
-              Opprett entry
+              Create entry
             </Button>
           </Space>
         </div>
@@ -295,7 +295,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
               onChange={e => setParentDn(e.target.value)}
               style={{ fontFamily: "monospace", fontSize: 12 }}
             />
-            <Tooltip title="Analyser eksisterende entries på nytt">
+            <Tooltip title="Re-analyze existing entries">
               <Button
                 icon={<ReloadOutlined />}
                 loading={analysisLoading}
@@ -314,22 +314,22 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             {analysisLoading ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Spin size="small" />
-                <Text style={{ fontSize: 12, color: "#1677ff" }}>Analyserer eksisterende entries…</Text>
+                <Text style={{ fontSize: 12, color: "#1677ff" }}>Analyzing existing entries…</Text>
               </div>
             ) : analysis && analysis.sampleCount > 0 ? (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                   <Text style={{ fontSize: 12, fontWeight: 600, color: "#1677ff" }}>
                     <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    Mønster fra {analysis.sampleCount} eksisterende entries
+                    Pattern from {analysis.sampleCount} existing entries
                   </Text>
-                  <Tooltip title="Legg til vanligste objectClasses og attributter automatisk">
+                  <Tooltip title="Automatically add most common objectClasses and attributes">
                     <Button
                       size="small" type="primary" ghost
                       icon={<ThunderboltOutlined />}
                       onClick={applyPattern}
                     >
-                      Bruk mønster
+                      Apply pattern
                     </Button>
                   </Tooltip>
                 </div>
@@ -359,13 +359,13 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
 
                 {/* Top attribute frequencies as small bars */}
                 <div>
-                  <Text type="secondary" style={{ fontSize: 11 }}>Vanligste attributter:</Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>Most common attributes:</Text>
                   <div style={{ marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 }}>
                     {analysis.attributes.slice(0, 12).map(item => {
                       const pct = Math.round((item.count / analysis.sampleCount) * 100);
                       const alreadyShown = shownAttrs.includes(item.name);
                       return (
-                        <Tooltip key={item.name} title={`${item.count}/${analysis.sampleCount} entries (${pct}%) — klikk for å legge til`}>
+                        <Tooltip key={item.name} title={`${item.count}/${analysis.sampleCount} entries (${pct}%) — click to add`}>
                           <Tag
                             color={alreadyShown ? "green" : "default"}
                             style={{
@@ -385,7 +385,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                 {/* RDN patterns */}
                 {analysis.rdnPatterns.length > 0 && (
                   <div style={{ marginTop: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 11 }}>RDN-mønster:</Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>RDN patterns:</Text>
                     <div style={{ marginTop: 3, display: "flex", flexWrap: "wrap", gap: 3 }}>
                       {analysis.rdnPatterns.slice(0, 5).map(p => {
                         const pct = Math.round((p.count / analysis.sampleCount) * 100);
@@ -397,7 +397,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                         return (
                           <Tooltip
                             key={p.attr}
-                            title={`${p.attr}=<${p.valueType.toLowerCase()}> — brukt av ${pct}% (eks: ${p.example})`}
+                            title={`${p.attr}=<${p.valueType.toLowerCase()}> — used by ${pct}% (ex: ${p.example})`}
                           >
                             <Tag
                               color={isActive ? typeColors[p.valueType] ?? "default" : "default"}
@@ -408,11 +408,11 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                               }}
                             >
                               <span style={{ fontFamily: "monospace" }}>{p.attr}</span>
-                              <span style={{ margin: "0 2px", opacity: 0.6 }}>·</span>
+                              <span style={{ margin: "0 2px", opacity: 0.6 }}>=</span>
                               {p.valueType === "UUID" ? "UUID" :
-                               p.valueType === "NUMBER" ? "Tall" :
-                               p.valueType === "EMAIL" ? "E-post" :
-                               p.valueType === "DN" ? "DN" : "Tekst"}
+                               p.valueType === "NUMBER" ? "Number" :
+                               p.valueType === "EMAIL" ? "Email" :
+                               p.valueType === "DN" ? "DN" : "Text"}
                               <span style={{ marginLeft: 3, opacity: 0.6 }}>{pct}%</span>
                             </Tag>
                           </Tooltip>
@@ -424,7 +424,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
               </>
             ) : analysis && analysis.sampleCount === 0 ? (
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Ingen eksisterende entries funnet — manuell oppretting
+                No existing entries found — manual creation
               </Text>
             ) : null}
           </div>
@@ -433,7 +433,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
         {/* ── RDN ──────────────────────────────────────────────────────── */}
         <Form.Item label={
           <span>
-            RDN <Text type="secondary" style={{ fontSize: 11 }}>(relativ DN)</Text>
+            RDN <Text type="secondary" style={{ fontSize: 11 }}>(relative DN)</Text>
             {activeRdnPattern && (
               <Tag
                 color="geekblue"
@@ -463,13 +463,13 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             </AutoComplete>
             <Text style={{ padding: "0 2px" }}>=</Text>
             <Input
-              placeholder={activeRdnPattern?.valueType === "UUID" ? "UUID" : "verdi"}
+              placeholder={activeRdnPattern?.valueType === "UUID" ? "UUID" : "value"}
               value={rdnValue}
               onChange={e => setRdnValue(e.target.value)}
               style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
             />
             {activeRdnPattern?.valueType === "UUID" && (
-              <Tooltip title="Generer ny UUID">
+              <Tooltip title="Generate new UUID">
                 <Button
                   size="small"
                   onClick={() => setRdnValue(uuidv4())}
@@ -513,7 +513,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             }
             style={{ width: "100%" }}
           >
-            <Input placeholder="Søk og velg objectClass…" onPressEnter={() => addOc(ocInput)} />
+            <Input placeholder="Search and select objectClass…" onPressEnter={() => addOc(ocInput)} />
           </AutoComplete>
         </Form.Item>
 
@@ -521,8 +521,8 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
 
         {/* ── Attributes ───────────────────────────────────────────────── */}
         <Form.Item label={
-          <span>Attributter&nbsp;
-            <Text type="secondary" style={{ fontSize: 11 }}>(* = påkrevd)</Text>
+          <span>Attributes&nbsp;
+            <Text type="secondary" style={{ fontSize: 11 }}>(* = required)</Text>
           </span>
         }>
           {shownAttrs.map(attrName => {
@@ -536,7 +536,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             return (
               <div key={attrName} style={{ marginBottom: isPwd ? 10 : 6 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <Tooltip title={freq ? `Brukt i ${Math.round(freq.count / analysis!.sampleCount * 100)}% av eksisterende entries` : undefined}>
+                  <Tooltip title={freq ? `Used in ${Math.round(freq.count / analysis!.sampleCount * 100)}% of entries` : undefined}>
                     <Text style={{
                       fontFamily: "monospace", fontSize: 12,
                       width: 130, flexShrink: 0,
@@ -557,7 +557,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                       value={val}
                       onChange={e => setAttr(attrName, e.target.value)}
                       style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
-                      placeholder="Skriv inn passord (klartekst)"
+                      placeholder="Enter password (plain text)"
                       status={isMust && !val.trim() ? "error" : undefined}
                     />
                   ) : (
@@ -566,7 +566,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                       value={val}
                       onChange={e => setAttr(attrName, e.target.value)}
                       style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
-                      placeholder={isMust ? "Påkrevd" : "Valgfri"}
+                      placeholder={isMust ? "Required" : "Optional"}
                       status={isMust && !val.trim() ? "error" : undefined}
                     />
                   )}
@@ -579,10 +579,10 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                 {isPwd && val.trim() !== "" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3, paddingLeft: 136 }}>
                     {alreadyHashed ? (
-                      <Tag color="green" style={{ fontSize: 10 }}>✓ Allerede hashet – sendes uendret</Tag>
+                      <Tag color="green" style={{ fontSize: 10 }}>✓ Already hashed – sent as-is</Tag>
                     ) : (
                       <>
-                        <Tag color="orange" style={{ fontSize: 10 }}>Vil bli hashet:</Tag>
+                        <Tag color="orange" style={{ fontSize: 10 }}>Will be hashed:</Tag>
                         <Select
                           size="small"
                           value={hashScheme}
@@ -606,7 +606,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             if (unusedMay.length === 0) return (
               <div style={{ marginBottom: 6 }}>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  ✅ Alle valgfrie schema-attributter er lagt til
+                  ✅ All optional schema attributes have been added
                 </Text>
               </div>
             );
@@ -629,16 +629,16 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                     : <CaretRightOutlined style={{ fontSize: 10, color: "#722ed1" }} />}
                   <BookOutlined style={{ fontSize: 12, color: "#722ed1" }} />
                   <Text style={{ fontSize: 11, fontWeight: 600, color: "#531dab" }}>
-                    Valgfrie schema-attributter (MAY)
+                    Optional schema attributes (MAY)
                   </Text>
                   <Tag color="purple" style={{ fontSize: 10, marginLeft: "auto" }}>
-                    {unusedMay.length} tilgjengelig
+                    {unusedMay.length} available
                   </Tag>
                 </div>
                 {schemaHintsExpanded && (
                   <div style={{ padding: "6px 10px" }}>
                     <Text type="secondary" style={{ fontSize: 11, display: "block", marginBottom: 5 }}>
-                      Definert av valgte objectClasses — klikk for å legge til:
+                      Defined by selected objectClasses — click to add:
                     </Text>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {unusedMay.map(a => {
@@ -648,8 +648,8 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
                           <Tooltip
                             key={a}
                             title={pct != null
-                              ? `Valgfri (MAY) — brukt i ${pct}% av søsken-entries`
-                              : "Valgfri (MAY) — definert av objectClass"}
+                              ? `Optional (MAY) — used in ${pct}% of sibling entries`
+                              : "Optional (MAY) — defined by objectClass"}
                           >
                             <Tag
                               color="purple"
@@ -683,7 +683,7 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
             onSelect={(v) => addOptionalAttr(v)}
             style={{ width: "100%", marginTop: 4 }}
           >
-            <Input size="small" placeholder="+ Legg til attributt…"
+            <Input size="small" placeholder="+ Add attribute…"
               prefix={<PlusOutlined style={{ color: "#aaa" }} />} />
           </AutoComplete>
         </Form.Item>
@@ -694,4 +694,3 @@ const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClos
 };
 
 export default NewEntryDrawer;
-

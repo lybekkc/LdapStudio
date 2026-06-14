@@ -46,7 +46,7 @@ function makeMoreNode(parentDn: string, count: number): DataNode {
     key:    moreKey(parentDn),
     title:  <span style={{ color: "#1677ff", fontSize: 12 }}>
               <PlusCircleOutlined style={{ marginRight: 4 }} />
-              Last inn flere... ({count} lastet)
+              Load more… ({count} loaded)
             </span>,
     icon:   <span />,
     isLeaf: true,
@@ -163,7 +163,7 @@ const DitTree: React.FC = () => {
       }
       setTreeData((prev) => updateTree(prev, dn, childNodes));
     } catch (e) {
-      message.error(`Feil ved lasting: ${e}`);
+      message.error(`Failed to load: ${e}`);
     } finally {
       loadingDns.current.delete(dn);
     }
@@ -193,7 +193,7 @@ const DitTree: React.FC = () => {
         }
         setTreeData((prev) => appendTree(prev, parentDn, key, newNodes));
       } catch (e) {
-        message.error(`Feil: ${e}`);
+        message.error(`Error: ${e}`);
       }
       return;
     }
@@ -213,17 +213,17 @@ const DitTree: React.FC = () => {
                       borderBottom: "1px solid #f0f0f0", background: "#fafafa", flexShrink: 0 }}>
           <TagsOutlined style={{ color: "#999", fontSize: 12 }} />
           <span style={{ fontSize: 11, color: "#666" }}>Object Classes</span>
-          <Tooltip title={showOcBrowser ? "Skjul" : "Vis"}>
+          <Tooltip title={showOcBrowser ? "Hide" : "Show"}>
             <Switch size="small" checked={showOcBrowser} onChange={setShowOcBrowser} />
           </Tooltip>
           <div style={{ flex: 1 }} />
-          <Tooltip title="Oppdater tre (F5)">
+          <Tooltip title="Refresh tree (F5)">
             <ReloadOutlined
               style={{ color: "#888", cursor: "pointer", fontSize: 13, marginRight: 4 }}
               onClick={refreshDitTree}
             />
           </Tooltip>
-          <Tooltip title={isReadOnly ? "Read-only — lås opp for å opprette entries" : `Ny entry under: ${newEntryParent}`}>
+          <Tooltip title={isReadOnly ? "Read-only — unlock to create entries" : `New entry under: ${newEntryParent}`}>
             <PlusOutlined
               style={{ color: isReadOnly ? "#aaa" : "#1677ff", cursor: isReadOnly ? "not-allowed" : "pointer", fontSize: 14 }}
               onClick={() => !isReadOnly && setNewEntryOpen(true)}

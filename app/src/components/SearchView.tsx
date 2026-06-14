@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AutoComplete, Input, Select, Button, Tag, Typography,
-  Empty, Spin, Tooltip, Popover, Tree, Badge, Modal, Form, Splitter, Switch,
+  Empty, Spin, Tooltip, Popover, Tree, Badge, Modal, Form, Splitter, Switch, InputNumber,
 } from "antd";
 import type { TreeDataNode as DataNode } from "antd";
 import {
@@ -120,36 +120,36 @@ const ResultItem: React.FC<{ entry: LdapEntry; selected: boolean; showOc: boolea
 // ─── Filter help popover ─────────────────────────────────────────────────────
 
 const EXAMPLES = [
-  { label: "Alle entries",             filter: "(objectClass=*)" },
-  { label: "Personer",                 filter: "(objectClass=person)" },
-  { label: "inetOrgPerson",            filter: "(objectClass=inetOrgPerson)" },
-  { label: "Organisasjonsenheter",     filter: "(objectClass=organizationalUnit)" },
-  { label: "Grupper",                  filter: "(objectClass=groupOfNames)" },
-  { label: "Søk på cn (eksakt)",       filter: "(cn=John Smith)" },
-  { label: "Søk på cn (wildcard)",     filter: "(cn=John*)" },
-  { label: "Søk på e-post",            filter: "(mail=*@eksempel.no)" },
-  { label: "uid finnes",               filter: "(uid=*)" },
-  { label: "Person med cn wildcard",   filter: "(&(objectClass=person)(cn=*))" },
-  { label: "Person ELLER gruppe",      filter: "(|(objectClass=person)(objectClass=groupOfNames))" },
-  { label: "Ikke disabled (AD-stil)",  filter: "(!( pwdAccountLockedTime=*))" },
+  { label: "All entries",               filter: "(objectClass=*)" },
+  { label: "Persons",                   filter: "(objectClass=person)" },
+  { label: "inetOrgPerson",             filter: "(objectClass=inetOrgPerson)" },
+  { label: "Organisational units",      filter: "(objectClass=organizationalUnit)" },
+  { label: "Groups",                    filter: "(objectClass=groupOfNames)" },
+  { label: "Search by cn (exact)",      filter: "(cn=John Smith)" },
+  { label: "Search by cn (wildcard)",   filter: "(cn=John*)" },
+  { label: "Search by email",           filter: "(mail=*@example.com)" },
+  { label: "uid exists",                filter: "(uid=*)" },
+  { label: "Person with cn wildcard",   filter: "(&(objectClass=person)(cn=*))" },
+  { label: "Person OR group",           filter: "(|(objectClass=person)(objectClass=groupOfNames))" },
+  { label: "Not disabled (AD-style)",   filter: "(!( pwdAccountLockedTime=*))" },
 ];
 
 const SYNTAX = [
-  { op: "(attr=value)",    desc: "Lik" },
-  { op: "(attr=*)",        desc: "Attributt finnes (present)" },
-  { op: "(attr=val*)",     desc: "Starter med" },
-  { op: "(attr=*val*)",    desc: "Inneholder" },
-  { op: "(attr~=value)",   desc: "Omtrentlig lik" },
-  { op: "(attr>=value)",   desc: "Større eller lik" },
-  { op: "(attr<=value)",   desc: "Mindre eller lik" },
-  { op: "(&(A)(B))",       desc: "AND – begge må stemme" },
-  { op: "(|(A)(B))",       desc: "OR – én av dem" },
-  { op: "(!(A))",          desc: "NOT – negasjon" },
+  { op: "(attr=value)",    desc: "Equals" },
+  { op: "(attr=*)",        desc: "Attribute present" },
+  { op: "(attr=val*)",     desc: "Starts with" },
+  { op: "(attr=*val*)",    desc: "Contains" },
+  { op: "(attr~=value)",   desc: "Approximate match" },
+  { op: "(attr>=value)",   desc: "Greater or equal" },
+  { op: "(attr<=value)",   desc: "Less or equal" },
+  { op: "(&(A)(B))",       desc: "AND — both must match" },
+  { op: "(|(A)(B))",       desc: "OR — one of them" },
+  { op: "(!(A))",          desc: "NOT — negation" },
 ];
 
 const FilterHelp: React.FC<{ onUse: (filter: string) => void }> = ({ onUse }) => (
   <div style={{ width: 420 }}>
-    <Text strong style={{ fontSize: 12 }}>Eksempelfiltre</Text>
+    <Text strong style={{ fontSize: 12 }}>Example filters</Text>
     <div style={{ marginTop: 6, marginBottom: 12 }}>
       {EXAMPLES.map((ex) => (
         <div
@@ -171,7 +171,7 @@ const FilterHelp: React.FC<{ onUse: (filter: string) => void }> = ({ onUse }) =>
             style={{ padding: 0, fontSize: 11 }}
             onClick={() => onUse(ex.filter)}
           >
-            Bruk
+            Use
           </Button>
         </div>
       ))}
@@ -253,11 +253,11 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
   return (
     <Modal
       open={open}
-      title={<span><StarOutlined style={{ marginRight: 6, color: "#faad14" }} />{isEdit ? "Rediger lagret søk" : "Lagre søk"}</span>}
+      title={<span><StarOutlined style={{ marginRight: 6, color: "#faad14" }} />{isEdit ? "Edit saved search" : "Save search"}</span>}
       onCancel={onCancel}
       onOk={handleOk}
-      okText={isEdit ? "Oppdater" : "Lagre"}
-      cancelText="Avbryt"
+      okText={isEdit ? "Update" : "Save"}
+      cancelText="Cancel"
       width={460}
       destroyOnClose
     >
@@ -291,7 +291,7 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
                 onOpenChange={setDnPickerOpen}
                 trigger="click"
                 placement="bottomRight"
-                title={<span style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 6 }} />Velg base DN</span>}
+                title={<span style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 6 }} />Select base DN</span>}
                 content={
                   <Tree
                     loadData={onLoadData}
@@ -359,6 +359,8 @@ const SearchView: React.FC = () => {
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [editingSearch, setEditingSearch] = useState<SavedSearch | null>(null);
   const [activeDn, setActiveDn]       = useState<string | null>(null);
+  const [pageSizePopover, setPageSizePopover] = useState(false);
+  const [pageSizeDraft,   setPageSizeDraft]   = useState<number>(pageSize);
   const selectingFromResults          = useRef(false);
 
   // Only update base DN from tree navigation — NOT when clicking a search result
@@ -516,7 +518,7 @@ const SearchView: React.FC = () => {
               }
               overlayStyle={{ width: 440 }}
             >
-              <Tooltip title="Vis eksempler og syntaks">
+              <Tooltip title="Show examples and syntax">
                 <Button size="small" icon={<QuestionCircleOutlined />} />
               </Tooltip>
             </Popover>
@@ -525,24 +527,54 @@ const SearchView: React.FC = () => {
           <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
             {searchLoading ? (
               <Button danger icon={<StopOutlined />} size="small" style={{ flex: 1 }} onClick={cancelSearch}>
-                Avbryt søk
+                Cancel search
               </Button>
             ) : (
               <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} size="small" style={{ flex: 1 }}>
-                Søk
+                Search
               </Button>
             )}
-            <Tooltip title={`Sidestørrelse: ${pageSize} — klikk for å endre`}>
-              <Button
-                size="small"
-                icon={<SettingOutlined />}
-                onClick={() => {
-                  const v = window.prompt(`Antall resultater per side (nå: ${pageSize}):`, String(pageSize));
-                  if (v && !isNaN(Number(v)) && Number(v) > 0) setPageSize(Number(v));
-                }}
-              />
-            </Tooltip>
-            <Tooltip title="Lagre søket (⭐)">
+            <Popover
+              open={pageSizePopover}
+              onOpenChange={(open) => {
+                setPageSizePopover(open);
+                if (open) setPageSizeDraft(pageSize);
+              }}
+              trigger="click"
+              placement="bottom"
+              title="Results per page"
+              content={
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: 180 }}>
+                  <InputNumber
+                    min={10}
+                    max={10000}
+                    step={50}
+                    value={pageSizeDraft}
+                    onChange={(v) => { if (v) setPageSizeDraft(v); }}
+                    onPressEnter={() => {
+                      if (pageSizeDraft > 0) { setPageSize(pageSizeDraft); setPageSizePopover(false); }
+                    }}
+                    style={{ width: "100%" }}
+                    autoFocus
+                  />
+                  <Button
+                    type="primary"
+                    size="small"
+                    block
+                    onClick={() => {
+                      if (pageSizeDraft > 0) { setPageSize(pageSizeDraft); setPageSizePopover(false); }
+                    }}
+                  >
+                    Apply
+                  </Button>
+                </div>
+              }
+            >
+              <Tooltip title={`Page size: ${pageSize} — click to change`}>
+                <Button size="small" icon={<SettingOutlined />} />
+              </Tooltip>
+            </Popover>
+            <Tooltip title="Save search (⭐)">
               <Button
                 size="small"
                 icon={<StarOutlined />}
@@ -558,7 +590,7 @@ const SearchView: React.FC = () => {
           <div style={{ borderBottom: "1px solid #f0f0f0", flexShrink: 0 }}>
             <div style={{ padding: "4px 12px", background: "#fffbe6", borderBottom: "1px solid #ffe58f", display: "flex", alignItems: "center", gap: 6 }}>
               <StarFilled style={{ color: "#faad14", fontSize: 11 }} />
-              <Text style={{ fontSize: 11, color: "#888" }}>Lagrede søk</Text>
+              <Text style={{ fontSize: 11, color: "#888" }}>Saved searches</Text>
             </div>
             {savedSearches.map((s) => (
               <div
@@ -583,7 +615,7 @@ const SearchView: React.FC = () => {
                     {s.filter}
                   </Text>
                 </div>
-                <Tooltip title="Rediger">
+                <Tooltip title="Edit">
                   <Button
                     type="text"
                     size="small"
@@ -592,7 +624,7 @@ const SearchView: React.FC = () => {
                     style={{ flexShrink: 0 }}
                   />
                 </Tooltip>
-                <Tooltip title="Slett">
+                <Tooltip title="Delete">
                   <Button
                     type="text"
                     size="small"
@@ -642,7 +674,7 @@ const SearchView: React.FC = () => {
                       Last neste side ({pageSize}) →
                     </Button>
                   )}
-                  <Tooltip title={showOcSearch ? "Skjul object classes" : "Vis object classes"}>
+                  <Tooltip title={showOcSearch ? "Hide object classes" : "Show object classes"}>
                     <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "#888" }}>
                       <TagsOutlined style={{ fontSize: 11 }} />
                       <Switch size="small" checked={showOcSearch} onChange={setShowOcSearch} />
@@ -671,7 +703,7 @@ const SearchView: React.FC = () => {
         ) : (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="Klikk et resultat for å se attributter"
+            description="Click a result to view attributes"
             style={{ marginTop: 80 }}
           />
         )}

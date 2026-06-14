@@ -14,6 +14,7 @@ import { LdifExportDialog, LdifImportDialog } from "./LdifDialog";
 import CsvExportDialog from "./CsvExportDialog";
 import UndoHistoryDrawer from "./UndoHistoryDrawer";
 import ShortcutsModal from "./ShortcutsModal";
+import HelpModal from "./HelpModal";
 import type { AppTab } from "../types";
 import { LdapIcon } from "./LdapIcon";
 
@@ -60,12 +61,22 @@ const Toolbar: React.FC = () => {
   const [importOpen,     setImportOpen]     = useState(false);
   const [csvExportOpen,  setCsvExportOpen]  = useState(false);
   const [shortcutsOpen,  setShortcutsOpen]  = useState(false);
+  const [helpOpen,       setHelpOpen]       = useState(false);
 
   // Listen for global "show-shortcuts" event (triggered by "?" key)
   useEffect(() => {
     const handler = () => setShortcutsOpen(true);
     window.addEventListener("show-shortcuts", handler);
     return () => window.removeEventListener("show-shortcuts", handler);
+  }, []);
+
+  // F1 opens help
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "F1") { e.preventDefault(); setHelpOpen(true); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, []);
 
   // Update window title to reflect the active profile
@@ -79,20 +90,20 @@ const Toolbar: React.FC = () => {
 
   const handleUnlock = () => {
     Modal.confirm({
-      title: "Aktiver skrivetilgang?",
+      title: "Enable write access?",
       icon: <UnlockOutlined style={{ color: "#fa8c16" }} />,
       content: (
         <div>
-          <p>Du er i ferd med å aktivere skrivetilgang for:</p>
+          <p>You are about to enable write access for:</p>
           <p><strong>{activeProfile?.name}</strong> ({activeProfile?.host})</p>
           <p style={{ color: "#d4380d" }}>
-            ⚠️ Denne tilkoblingen er markert som <strong>read-only</strong>. Vær forsiktig med endringer!
+            ⚠️ This connection is marked as <strong>read-only</strong>. Be careful with changes!
           </p>
         </div>
       ),
-      okText: "Lås opp",
+      okText: "Unlock",
       okButtonProps: { danger: true },
-      cancelText: "Avbryt",
+      cancelText: "Cancel",
       onOk: () => setWriteUnlocked(true),
     });
   };
@@ -131,7 +142,7 @@ const Toolbar: React.FC = () => {
               borderColor: nc === serverInfo.activeBaseDn ? "#1677ff" : undefined,
             }}
             onClick={() => { if (nc !== serverInfo.activeBaseDn) setActiveBaseDn(nc); }}
-            title={nc === serverInfo.activeBaseDn ? "Aktiv base DN" : "Klikk for å bytte til denne"}
+            title={nc === serverInfo.activeBaseDn ? "Active base DN" : "Click to switch to this"}
           >
             {nc === serverInfo.activeBaseDn ? "▶ " : ""}{nc}
           </Text>
@@ -184,15 +195,15 @@ const Toolbar: React.FC = () => {
       {/* LDIF Import / Export */}
       {connected && (
         <Space size={4}>
-          <Tooltip title="Eksporter til LDIF">
+          <Tooltip title="Export to LDIF">
             <Button type="text" size="small" icon={<DownloadOutlined />}
               onClick={() => setExportOpen(true)} style={{ color: "#ffffffaa" }} />
           </Tooltip>
-          <Tooltip title="Eksporter til CSV / Excel">
+          <Tooltip title="Export to CSV / Excel">
             <Button type="text" size="small" icon={<TableOutlined />}
               onClick={() => setCsvExportOpen(true)} style={{ color: "#ffffffaa" }} />
           </Tooltip>
-          <Tooltip title="Importer fra LDIF">
+          <Tooltip title="Import from LDIF">
             <Button type="text" size="small" icon={<UploadOutlined />}
               onClick={() => setImportOpen(true)} style={{ color: "#ffffffaa" }} />
           </Tooltip>
@@ -234,7 +245,7 @@ const Toolbar: React.FC = () => {
       )}
 
       {/* Settings button */}
-      <Tooltip title="Innstillinger">
+      <Tooltip title="Settings">
         <Button
           type="text"
           icon={<SettingOutlined />}
@@ -253,24 +264,34 @@ const Toolbar: React.FC = () => {
         />
       </Tooltip>
 
+      {/* Help */}
+      <Tooltip title="Help (F1)">
+        <Button
+          type="text"
+          icon={<span style={{ fontSize: 14 }}>📖</span>}
+          onClick={() => setHelpOpen(true)}
+          style={{ color: "#ffffffaa" }}
+        />
+      </Tooltip>
+
       {/* Connection status */}
       {connected && serverInfo ? (
         <Space>
           {/* Read-only / write-unlocked indicator */}
           {activeProfile?.readOnly && (
             writeUnlocked ? (
-              <Tooltip title="Skrivetilgang er aktiv — klikk for å låse igjen">
+              <Tooltip title="Write access active — click to lock again">
                 <Tag
                   color="warning"
                   icon={<UnlockOutlined />}
                   style={{ cursor: "pointer" }}
                   onClick={() => setWriteUnlocked(false)}
                 >
-                  Skrivetilgang aktiv
+                  Write access active
                 </Tag>
               </Tooltip>
             ) : (
-              <Tooltip title="Read-only tilkobling — klikk for å låse opp midlertidig">
+              <Tooltip title="Read-only connection — click to temporarily unlock">
                 <Tag
                   color="default"
                   icon={<LockOutlined />}
@@ -325,7 +346,7 @@ const Toolbar: React.FC = () => {
 
       {/* ── Settings Drawer ──────────────────────────────────────────────────── */}
       <Drawer
-        title={<span><SettingOutlined style={{ marginRight: 8 }} />Innstillinger</span>}
+        title={<span><SettingOutlined style={{ marginRight: 8 }} />Settings</span>}
         placement="right"
         width={320}
         open={settingsOpen}
@@ -333,9 +354,9 @@ const Toolbar: React.FC = () => {
       >
         <Form layout="vertical" size="small">
 
-          <Divider orientation="left" style={{ fontSize: 12, color: "#888" }}>Søk og navigasjon</Divider>
+          <Divider orientation="left" style={{ fontSize: 12, color: "#888" }}>Search & Navigation</Divider>
 
-          <Form.Item label="Antall resultater per side (paging)">
+          <Form.Item label="Results per page (paging)">
             <InputNumber
               min={10}
               max={10000}
@@ -345,22 +366,22 @@ const Toolbar: React.FC = () => {
               style={{ width: "100%" }}
             />
             <Text type="secondary" style={{ fontSize: 11 }}>
-              Brukes for både søkeresultater og DIT-treet
+              Used for both search results and the DIT tree
             </Text>
           </Form.Item>
 
-          <Divider orientation="left" style={{ fontSize: 12, color: "#888" }}>Object Class-visning</Divider>
+          <Divider orientation="left" style={{ fontSize: 12, color: "#888" }}>Object Class display</Divider>
 
           <Form.Item>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <TagsOutlined style={{ color: "#1677ff" }} />
-                <span>Vis i Browser-treet</span>
+                <span>Show in Browser tree</span>
               </span>
               <Switch checked={showOcBrowser} onChange={setShowOcBrowser} />
             </div>
             <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-              Viser object class-tagger ved siden av hvert noden i DIT-treet
+              Shows object class tags next to each node in the DIT tree
             </Text>
           </Form.Item>
 
@@ -368,12 +389,12 @@ const Toolbar: React.FC = () => {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <TagsOutlined style={{ color: "#1677ff" }} />
-                <span>Vis i Søkeresultater</span>
+                <span>Show in Search results</span>
               </span>
               <Switch checked={showOcSearch} onChange={setShowOcSearch} />
             </div>
             <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
-              Viser object class-tagger i søkeresultat-listen
+              Shows object class tags in the search results list
             </Text>
           </Form.Item>
 
@@ -381,7 +402,7 @@ const Toolbar: React.FC = () => {
 
         <div style={{ marginTop: 24, padding: "12px", background: "#f6ffed", border: "1px solid #b7eb8f", borderRadius: 6 }}>
           <Text style={{ fontSize: 11, color: "#52c41a" }}>
-            ✓ Innstillinger lagres automatisk
+            ✓ Settings are saved automatically
           </Text>
         </div>
       </Drawer>
@@ -400,7 +421,7 @@ const Toolbar: React.FC = () => {
           <>
             <CloseCircleOutlined style={{ color: "#cf1322", fontSize: 14 }} />
             <Text style={{ fontSize: 12, color: "#cf1322" }}>
-              Tilkobling mistet — kunne ikke koble til på nytt automatisk.
+              Connection lost — could not reconnect automatically.
             </Text>
             <Button
               size="small"
@@ -409,25 +430,25 @@ const Toolbar: React.FC = () => {
               onClick={() => setShowConnectionDialog(true)}
               style={{ marginLeft: 8 }}
             >
-              Koble til manuelt
+              Connect manually
             </Button>
           </>
         ) : (
           <>
             <LoadingOutlined style={{ color: "#d46b08", fontSize: 14 }} spin />
             <Text style={{ fontSize: 12, color: "#d46b08" }}>
-              <strong>VPN/nettverk mistet.</strong>
-              {" "}Kobler til på nytt… forsøk {reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS}
-              {reconnectIn > 0 && ` — neste om ${reconnectIn}s`}
+              <strong>VPN/network lost.</strong>
+              {" "}Reconnecting… attempt {reconnectAttempt}/{MAX_RECONNECT_ATTEMPTS}
+              {reconnectIn > 0 && ` — next in ${reconnectIn}s`}
             </Text>
-            <Tooltip title="Avbryt automatisk gjenoppkobling">
+            <Tooltip title="Cancel auto-reconnect">
               <Button
                 size="small"
                 icon={<WifiOutlined />}
                 onClick={cancelReconnect}
                 style={{ marginLeft: 8 }}
               >
-                Avbryt
+                Cancel
               </Button>
             </Tooltip>
           </>
@@ -441,6 +462,7 @@ const Toolbar: React.FC = () => {
     <CsvExportDialog  open={csvExportOpen} onClose={() => setCsvExportOpen(false)} />
     <UndoHistoryDrawer open={historyDrawerOpen} onClose={() => setHistoryDrawerOpen(false)} />
     <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+    <HelpModal      open={helpOpen}      onClose={() => setHelpOpen(false)} />
     </>
   );
 };

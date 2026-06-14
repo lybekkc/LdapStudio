@@ -293,19 +293,19 @@ const EntryDetails: React.FC = () => {
     const attrMods  = computeMods(selectedEntry.attributes, editMap);
     const ocMods    = computeOcMods(objectClasses, ocEditList ?? objectClasses);
     const allMods   = [...ocMods, ...attrMods];
-    if (allMods.length === 0) { message.info("Ingen endringer å lagre"); cancelEdit(); return; }
+    if (allMods.length === 0) { message.info("No changes to save"); cancelEdit(); return; }
     setSaving(true);
     try {
       // Hash any plain-text password values before sending
       const processedMods = await processPasswordMods(allMods, hashScheme);
       await modifyEntry(selectedEntry.dn, processedMods);
-      message.success(`${allMods.length} endring(er) lagret`);
+      message.success(`${allMods.length} change(s) saved`);
       setEditMap(null);
       setOcEditList(null);
       setOcAddInput("");
       setSiblingAnalysis(null);
     } catch (e) {
-      message.error(`Feil: ${e}`);
+      message.error(`Error: ${e}`);
     } finally {
       setSaving(false);
     }
@@ -316,17 +316,17 @@ const EntryDetails: React.FC = () => {
 
   const confirmDelete = () => {
     Modal.confirm({
-      title: "Slett entry?",
+      title: "Delete entry?",
       content: <Text code style={{ fontSize: 12 }}>{selectedEntry.dn}</Text>,
-      okText: "Slett",
+      okText: "Delete",
       okType: "danger",
-      cancelText: "Avbryt",
+      cancelText: "Cancel",
       onOk: async () => {
         try {
           await deleteEntry(selectedEntry.dn);
-          message.success("Entry slettet");
+          message.success("Entry deleted");
         } catch (e) {
-          message.error(`Feil: ${e}`);
+          message.error(`Error: ${e}`);
         }
       },
     });
@@ -400,8 +400,8 @@ const EntryDetails: React.FC = () => {
           <Space size={4} style={{ flexShrink: 0 }}>
             {!isEditing ? (
               <>
-                <Tooltip title={isReadOnly ? "Read-only — lås opp i verktøylinjen for å redigere" : "Rediger entry"}>
-                  <Button size="small" icon={<EditOutlined />} onClick={startEdit} disabled={isReadOnly}>Rediger</Button>
+                <Tooltip title={isReadOnly ? "Read-only — unlock in toolbar to edit" : "Edit entry"}>
+                  <Button size="small" icon={<EditOutlined />} onClick={startEdit} disabled={isReadOnly}>Edit</Button>
                 </Tooltip>
                 <Tooltip title={isReadOnly ? "Read-only" : "Rename / Move entry"}>
                   <Button size="small" icon={<SwapOutlined />} onClick={() => setRenameOpen(true)} disabled={isReadOnly} />
@@ -414,15 +414,15 @@ const EntryDetails: React.FC = () => {
                     style={clipboardEntry?.sourceDn === selectedEntry.dn ? { color: "#faad14" } : undefined}
                   />
                 </Tooltip>
-                <Tooltip title={isReadOnly ? "Read-only — lås opp i verktøylinjen for å slette" : "Slett entry"}>
+                <Tooltip title={isReadOnly ? "Read-only — unlock in toolbar to delete" : "Delete entry"}>
                   <Button size="small" icon={<DeleteOutlined />} danger onClick={confirmDelete} disabled={isReadOnly} />
                 </Tooltip>
               </>
             ) : (
               <>
                 <Button size="small" type="primary" icon={<SaveOutlined />}
-                  loading={saving} onClick={saveEdits}>Lagre</Button>
-                <Button size="small" icon={<CloseOutlined />} onClick={cancelEdit}>Avbryt</Button>
+                  loading={saving} onClick={saveEdits}>Save</Button>
+                <Button size="small" icon={<CloseOutlined />} onClick={cancelEdit}>Cancel</Button>
               </>
             )}
           </Space>
@@ -446,7 +446,7 @@ const EntryDetails: React.FC = () => {
             : <CaretRightOutlined style={{ fontSize: 11, color: "#888" }} />}
           <Text style={{ fontSize: 11, fontWeight: 600, color: ocExpanded ? (isEditing ? "#389e0d" : "#1677ff") : "#555" }}>
             objectClass
-            {isEditing && <span style={{ marginLeft: 6, fontWeight: 400, color: "#52c41a", fontSize: 10 }}>✎ redigeres</span>}
+            {isEditing && <span style={{ marginLeft: 6, fontWeight: 400, color: "#52c41a", fontSize: 10 }}>✎ editing</span>}
           </Text>
           {!ocExpanded && (
             <span style={{ marginLeft: 4 }}>
@@ -457,18 +457,18 @@ const EntryDetails: React.FC = () => {
           )}
           {ocExpanded && !isEditing && (
             <Text type="secondary" style={{ fontSize: 10, marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-              {currentOcs.length} klasser — klikk for å skjule
-              <Tooltip title="Kopier alle">
+              {currentOcs.length} classes — click to collapse
+              <Tooltip title="Copy all">
                 <Button type="text" size="small" icon={<CopyOutlined />}
                   style={{ fontSize: 11, padding: "0 4px", height: 18, color: "#1677ff" }}
-                  onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(currentOcs.join(", ")); message.success("Kopiert!", 1); }}
+                  onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(currentOcs.join(", ")); message.success("Copied!", 1); }}
                 />
               </Tooltip>
             </Text>
           )}
           {ocExpanded && isEditing && (
             <Text style={{ fontSize: 10, marginLeft: "auto", color: "#389e0d" }}>
-              {currentOcs.length} klasser
+              {currentOcs.length} classes
             </Text>
           )}
         </div>
@@ -486,8 +486,8 @@ const EntryDetails: React.FC = () => {
                   <Tooltip
                     key={oc}
                     title={isStructural
-                      ? `${oc} (structural) — OBS: fjerning av strukturell OC kan feile på serveren`
-                      : `Fjern "${oc}"`}
+                      ? `${oc} (structural) — Warning: removing a structural OC may fail on the server`
+                      : `Remove "${oc}"`}
                   >
                     <Tag
                       color={isAdded ? "green" : isStructural ? "blue" : ocColor(oc)}
@@ -708,11 +708,11 @@ const EntryDetails: React.FC = () => {
                   {schemaMustMissing.length > 0 && (
                     <div style={{ marginBottom: schemaMayMissing.length > 0 ? 8 : 0 }}>
                       <Text style={{ fontSize: 11, color: "#cf1322", fontWeight: 600, display: "block", marginBottom: 4 }}>
-                        Påkrevd av schema (MUST):
+                        Required by schema (MUST):
                       </Text>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {schemaMustMissing.map(attr => (
-                          <Tooltip key={attr} title={`Påkrevd av objectClass — klikk for å legge til`}>
+                          <Tooltip key={attr} title={`Required by objectClass — click to add`}>
                             <Tag
                               color="red"
                               style={{ cursor: "pointer", fontSize: 11, margin: 0, fontFamily: "monospace" }}
@@ -732,11 +732,11 @@ const EntryDetails: React.FC = () => {
                   {schemaMayMissing.length > 0 && (
                     <div>
                       <Text type="secondary" style={{ fontSize: 11, display: "block", marginBottom: 4 }}>
-                        Valgfri iflg. schema (MAY) — klikk for å legge til:
+                        Optional per schema (MAY) — click to add:
                       </Text>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {schemaMayMissing.map(attr => (
-                          <Tooltip key={attr} title={`Valgfritt attributt definert av objectClass — klikk for å legge til`}>
+                          <Tooltip key={attr} title={`Optional attribute defined by objectClass — click to add`}>
                             <Tag
                               color="purple"
                               style={{ cursor: "pointer", fontSize: 11, margin: 0, fontFamily: "monospace" }}
@@ -787,12 +787,12 @@ const EntryDetails: React.FC = () => {
                   <BulbOutlined style={{ fontSize: 12, color: "#fa8c16" }} />
                   <Text style={{ fontSize: 11, fontWeight: 600, color: "#d46b08" }}>
                     {siblingLoading
-                      ? "Analyserer søsken-entries…"
-                      : `Attributter brukt av søsken (${siblingAnalysis!.sampleCount} entries)`}
+                      ? "Analyzing sibling entries…"
+                      : `Attributes used by siblings (${siblingAnalysis!.sampleCount} entries)`}
                   </Text>
                   {!siblingLoading && missingAttrs.length > 0 && (
                     <Tag color="orange" style={{ fontSize: 10, marginLeft: "auto" }}>
-                      {missingAttrs.length} mangler
+                      {missingAttrs.length} missing
                     </Tag>
                   )}
                 </div>
@@ -802,16 +802,16 @@ const EntryDetails: React.FC = () => {
                     {siblingLoading ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <Spin size="small" />
-                        <Text type="secondary" style={{ fontSize: 11 }}>Laster analyse…</Text>
+                        <Text type="secondary" style={{ fontSize: 11 }}>Loading analysis…</Text>
                       </div>
                     ) : missingAttrs.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        ✅ Denne entry har alle attributter som finnes i søsken-entries!
+                        ✅ This entry has all attributes found in sibling entries!
                       </Text>
                     ) : (
                       <>
                         <Text type="secondary" style={{ fontSize: 11, display: "block", marginBottom: 6 }}>
-                          Klikk for å legge til manglende attributt:
+                          Click to add missing attribute:
                         </Text>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {missingAttrs.map(item => {
@@ -821,7 +821,7 @@ const EntryDetails: React.FC = () => {
                             return (
                               <Tooltip
                                 key={item.name}
-                                title={`Finnes i ${item.count}/${siblingAnalysis!.sampleCount} entries (${pct}%) — klikk for å legge til`}
+                                title={`Found in ${item.count}/${siblingAnalysis!.sampleCount} entries (${pct}%) — click to add`}
                               >
                                 <Tag
                                   color={color}

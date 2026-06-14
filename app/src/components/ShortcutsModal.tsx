@@ -16,19 +16,22 @@ const shortcuts = [
   { category: "Navigation",    key: `${mod}+2`,      action: "Switch to Search tab"     },
   { category: "Navigation",    key: `${mod}+3`,      action: "Switch to Schema tab"     },
   { category: "Browser",       key: `F5`,            action: "Refresh DIT tree"         },
+  { category: "General",       key: `F1`,            action: "Open Help"                },
+  { category: "General",       key: `?`,             action: "Open keyboard shortcuts"  },
   { category: "History",       key: `${mod}+Z`,      action: "Undo last operation"      },
   { category: "History",       key: `${mod}+H`,      action: "Open operation history"   },
   { category: "Entry",         key: `${mod}+E`,      action: "Edit selected entry"      },
   { category: "Entry",         key: `${mod}+S`,      action: "Save changes (edit mode)" },
-  { category: "Entry",         key: `${mod}+N`,      action: "New entry (browser tab)"  },
+  { category: "Entry",         key: `${mod}+N`,      action: "New entry (Browser tab)"  },
   { category: "Entry",         key: `${mod}+C`,      action: "Copy selected entry to clipboard" },
-  { category: "Entry",         key: `${mod}+V`,      action: "Paste entry (open New Entry drawer pre-filled)" },
+  { category: "Entry",         key: `${mod}+V`,      action: "Paste entry (pre-filled New Entry drawer)" },
   { category: "Entry",         key: `Escape`,        action: "Cancel edit mode"         },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
   Navigation: "blue",
   Browser:    "cyan",
+  General:    "green",
   History:    "purple",
   Entry:      "orange",
 };
@@ -39,7 +42,7 @@ const ShortcutsModal: React.FC<Props> = ({ open, onClose }) => (
     title="⌨️ Keyboard Shortcuts"
     onCancel={onClose}
     footer={null}
-    width={480}
+    width={500}
   >
     <Table
       dataSource={shortcuts}
@@ -72,4 +75,3 @@ const ShortcutsModal: React.FC<Props> = ({ open, onClose }) => (
 );
 
 export default ShortcutsModal;
-

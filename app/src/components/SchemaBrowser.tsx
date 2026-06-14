@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip, Switch } from "antd";
-import { PlusOutlined, EditOutlined, ReloadOutlined } from "@ant-design/icons";
+import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip, Switch, Modal, message } from "antd";
+import { PlusOutlined, EditOutlined, ReloadOutlined, DownloadOutlined, CodeOutlined } from "@ant-design/icons";
+import { save as dialogSave } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { useAppStore } from "../store/appStore";
 import { OcEditor, AtEditor } from "./SchemaEditor";
 import type { AttributeType, ObjectClass } from "../types";
@@ -108,7 +110,69 @@ export function suggestNextOid(enterpriseBase: string, oids: string[]): string {
   return `${parentArc}.${maxLeaf + 1}`;
 }
 
-// ─── Object Classes tab ──────────────────────────────────────────────────────
+// ─── Custom schema LDIF export ────────────────────────────────────────────────
+
+/**
+ * Build an LDIF file that adds the given custom attributeTypes and objectClasses
+ * to cn=schema via a single `changetype: modify` entry.
+ *
+ * AttributeTypes are exported first because objectClasses may depend on them.
+ * Each definition is taken from the server's raw string (as returned in schema).
+ */
+function buildCustomSchemaLdif(
+  schemaDn: string,
+  customAts: AttributeType[],
+  customOcs: ObjectClass[],
+  enterpriseBase: string | null,
+  serverHost: string,
+): string {
+  const now = new Date().toISOString();
+  const lines: string[] = [
+    "version: 1",
+    "#",
+    "# Custom schema export — LDAP Studio",
+    `# Generated : ${now}`,
+    `# Server    : ${serverHost}`,
+    ...(enterpriseBase ? [`# PEN base  : ${enterpriseBase}`] : []),
+    `# Custom ATs: ${customAts.length}`,
+    `# Custom OCs: ${customOcs.length}`,
+    "#",
+    "# To import to another server:",
+    "#   ldapmodify -H ldaps://host -D 'cn=admin,cn=config' -W -f this_file.ldif",
+    "#",
+    "",
+  ];
+
+  if (customAts.length === 0 && customOcs.length === 0) {
+    lines.push("# No custom schema definitions found.");
+    return lines.join("\n");
+  }
+
+  lines.push(`dn: ${schemaDn}`, "changetype: modify");
+
+  // ── attributeTypes first ──────────────────────────────────────────────────
+  if (customAts.length > 0) {
+    lines.push("add: attributeTypes");
+    for (const at of customAts) {
+      const raw = at.raw?.trim() ?? `( ${at.oid} NAME '${at.name}' )`;
+      lines.push(`attributeTypes: ${raw}`);
+    }
+    lines.push("-");
+  }
+
+  // ── objectClasses second ──────────────────────────────────────────────────
+  if (customOcs.length > 0) {
+    lines.push("add: objectClasses");
+    for (const oc of customOcs) {
+      const raw = oc.raw?.trim() ?? `( ${oc.oid} NAME '${oc.name}' STRUCTURAL )`;
+      lines.push(`objectClasses: ${raw}`);
+    }
+    lines.push("-");
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
 
 const kindColors: Record<string, string> = {
   STRUCTURAL: "blue",
@@ -126,14 +190,17 @@ interface OcTabProps {
   onNew: () => void;
 }
 
-const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, onEdit, onNew }) => {
+const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, enterpriseBase, readOnly, onEdit, onNew }) => {
   const schema = useAppStore((s) => s.schema);
   const [selected, setSelected] = useState<ObjectClass | null>(null);
 
   if (!schema) return null;
 
+  const isCustomOid = (oid: string) =>
+    enterpriseBase ? oid.startsWith(enterpriseBase + ".") || oid === enterpriseBase : !isStandardOid(oid);
+
   const filtered = schema.objectClasses.filter((oc) => {
-    if (customOnly && isStandardOid(oc.oid)) return false;
+    if (customOnly && !isCustomOid(oc.oid)) return false;
     return !filter ||
       oc.name.toLowerCase().includes(filter.toLowerCase()) ||
       oc.oid.includes(filter);
@@ -148,7 +215,7 @@ const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, 
       render: (name: string, record: ObjectClass) => (
         <span>
           <a onClick={() => setSelected(record)}>{name || record.oid}</a>
-          {!isStandardOid(record.oid) && (
+          {isCustomOid(record.oid) && (
             <Tag color="volcano" style={{ marginLeft: 6, fontSize: 10 }}>custom</Tag>
           )}
         </span>
@@ -192,7 +259,7 @@ const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, 
       width: 60,
       render: (_: unknown, record: ObjectClass) => (
         !readOnly ? (
-          <Tooltip title="Rediger definisjon">
+          <Tooltip title="Edit definition">
             <Button size="small" icon={<EditOutlined />} onClick={() => onEdit(record)} />
           </Tooltip>
         ) : null
@@ -205,7 +272,7 @@ const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, 
       {!readOnly && (
         <div style={{ marginBottom: 8, display: "flex", justifyContent: "flex-end" }}>
           <Button type="primary" size="small" icon={<PlusOutlined />} onClick={onNew}>
-            Ny ObjectClass
+            New ObjectClass
           </Button>
         </div>
       )}
@@ -228,7 +295,7 @@ const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, 
         onClose={() => setSelected(null)}
         extra={!readOnly && (
           <Button size="small" icon={<EditOutlined />} onClick={() => { onEdit(selected!); setSelected(null); }}>
-            Rediger
+            Edit
           </Button>
         )}
       >
@@ -271,14 +338,17 @@ interface AtTabProps {
   onNew: () => void;
 }
 
-const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly, onEdit, onNew }) => {
+const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, enterpriseBase, readOnly, onEdit, onNew }) => {
   const schema = useAppStore((s) => s.schema);
   const [selected, setSelected] = useState<AttributeType | null>(null);
 
   if (!schema) return null;
 
+  const isCustomOid = (oid: string) =>
+    enterpriseBase ? oid.startsWith(enterpriseBase + ".") || oid === enterpriseBase : !isStandardOid(oid);
+
   const filtered = schema.attributeTypes.filter((at) => {
-    if (customOnly && isStandardOid(at.oid)) return false;
+    if (customOnly && !isCustomOid(at.oid)) return false;
     return !filter ||
       at.name.toLowerCase().includes(filter.toLowerCase()) ||
       at.oid.includes(filter);
@@ -293,7 +363,7 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly,
       render: (name: string, record: AttributeType) => (
         <span>
           <a onClick={() => setSelected(record)}>{name || record.oid}</a>
-          {!isStandardOid(record.oid) && (
+          {isCustomOid(record.oid) && (
             <Tag color="volcano" style={{ marginLeft: 6, fontSize: 10 }}>custom</Tag>
           )}
         </span>
@@ -342,7 +412,7 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly,
       width: 60,
       render: (_: unknown, record: AttributeType) => (
         !readOnly ? (
-          <Tooltip title="Rediger definisjon">
+          <Tooltip title="Edit definition">
             <Button size="small" icon={<EditOutlined />} onClick={() => onEdit(record)} />
           </Tooltip>
         ) : null
@@ -355,7 +425,7 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly,
       {!readOnly && (
         <div style={{ marginBottom: 8, display: "flex", justifyContent: "flex-end" }}>
           <Button type="primary" size="small" icon={<PlusOutlined />} onClick={onNew}>
-            Ny AttributeType
+            New AttributeType
           </Button>
         </div>
       )}
@@ -377,7 +447,7 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly,
         onClose={() => setSelected(null)}
         extra={!readOnly && (
           <Button size="small" icon={<EditOutlined />} onClick={() => { onEdit(selected!); setSelected(null); }}>
-            Rediger
+            Edit
           </Button>
         )}
       >
@@ -416,6 +486,8 @@ const SchemaBrowser: React.FC = () => {
   const [atEditorOpen, setAtEditorOpen] = useState(false);
   const [atEditing,    setAtEditing]    = useState<AttributeType | null>(null);
   const [customOnly,   setCustomOnly]   = useState(false);
+  const [exportPreviewOpen, setExportPreviewOpen] = useState(false);
+  const [exportLdif,        setExportLdif]        = useState("");
 
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
 
@@ -432,6 +504,47 @@ const SchemaBrowser: React.FC = () => {
     await reloadSchema();
   };
 
+  const handleExportCustomSchema = () => {
+    if (!schema) return;
+    const penBase = activeProfile?.enterpriseBaseOid?.trim() || null;
+    const allOids = [
+      ...schema.objectClasses.map((oc) => oc.oid),
+      ...schema.attributeTypes.map((at) => at.oid),
+    ];
+    const detectedBase = penBase || detectEnterpriseBase(allOids.filter(o => !isStandardOid(o)));
+    const isCustom = (oid: string) =>
+      detectedBase ? oid.startsWith(detectedBase + ".") || oid === detectedBase : !isStandardOid(oid);
+
+    const customAts = schema.attributeTypes.filter((at) => isCustom(at.oid));
+    const customOcs = schema.objectClasses.filter((oc) => isCustom(oc.oid));
+    if (customAts.length === 0 && customOcs.length === 0) {
+      message.info("No custom schema definitions found to export.");
+      return;
+    }
+    const ldif = buildCustomSchemaLdif(
+      schemaDn,
+      customAts,
+      customOcs,
+      penBase,
+      activeProfile?.host ?? "unknown",
+    );
+    setExportLdif(ldif);
+    setExportPreviewOpen(true);
+  };
+
+  const handleDownloadLdif = async () => {
+    const host = activeProfile?.host?.replace(/[^a-z0-9]/gi, "_") ?? "ldap";
+    const suggestedName = `custom-schema_${host}.ldif`;
+    const filePath = await dialogSave({
+      title: "Save custom schema LDIF",
+      defaultPath: suggestedName,
+      filters: [{ name: "LDIF", extensions: ["ldif", "ldf", "txt"] }],
+    });
+    if (!filePath) return;
+    await writeTextFile(filePath, exportLdif);
+    message.success("Custom schema exported successfully");
+  };
+
   if (!connected) {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Not connected" style={{ marginTop: 80 }} />;
   }
@@ -446,15 +559,23 @@ const SchemaBrowser: React.FC = () => {
 
   if (!schema) return null;
 
-  const customOcCount  = schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).length;
-  const customAtCount  = schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).length;
-  const allCustomOids  = [
+  const allCustomOids = [
     ...schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).map((oc) => oc.oid),
     ...schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).map((at) => at.oid),
   ];
-  const enterpriseBase = detectEnterpriseBase(allCustomOids);
+
+  // Prefer manually configured PEN from connection profile; fall back to auto-detection
+  const enterpriseBase: string | null =
+    activeProfile?.enterpriseBaseOid?.trim() || detectEnterpriseBase(allCustomOids);
 
   const penNumber = enterpriseBase?.split(".")[6] ?? null;
+  const isManualPen = !!activeProfile?.enterpriseBaseOid?.trim();
+
+  const isCustomOid = (oid: string) =>
+    enterpriseBase ? oid.startsWith(enterpriseBase + ".") || oid === enterpriseBase : !isStandardOid(oid);
+
+  const customOcCount = schema.objectClasses.filter((oc) => isCustomOid(oc.oid)).length;
+  const customAtCount = schema.attributeTypes.filter((at) => isCustomOid(at.oid)).length;
 
   const tabItems = [
     {
@@ -537,16 +658,23 @@ const SchemaBrowser: React.FC = () => {
           display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
         }}>
           <span style={{ fontSize: 12 }}>
-            🏢 <strong>Detektert enterprise OID:</strong>{" "}
+            🏢 <strong>{isManualPen ? "Enterprise OID prefix:" : "Detected enterprise OID:"}</strong>{" "}
             <Text code style={{ fontSize: 12 }}>{enterpriseBase}</Text>
             {penNumber && (
               <span style={{ color: "#888", marginLeft: 6 }}>
                 (IANA PEN: <strong>{penNumber}</strong>)
               </span>
             )}
+            {!isManualPen && (
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
+                — auto-detected. Set manually in Connection Profile for better accuracy.
+              </Text>
+            )}
           </span>
           <span style={{ color: "#888", fontSize: 11 }}>
-            {customOcCount} custom OCs · {customAtCount} custom attrs
+            Matching: OIDs starting with{" "}
+            <Text code style={{ fontSize: 10 }}>{enterpriseBase}.<strong>*</strong></Text>
+            {" "}— {customOcCount} custom OCs · {customAtCount} custom attrs
           </span>
           {penNumber && (
             <a
@@ -554,7 +682,7 @@ const SchemaBrowser: React.FC = () => {
               target="_blank" rel="noopener noreferrer"
               style={{ fontSize: 11, marginLeft: "auto" }}
             >
-              Verifiser i IANA-registeret ↗
+              Verify in IANA registry ↗
             </a>
           )}
         </div>
@@ -568,7 +696,7 @@ const SchemaBrowser: React.FC = () => {
           allowClear
           style={{ maxWidth: 380 }}
         />
-        <Tooltip title={`Vis kun custom/ikke-standard definisjoner (${customOcCount} OC, ${customAtCount} attrs)`}>
+        <Tooltip title={`Show custom/non-standard definitions only (${customOcCount} OC, ${customAtCount} attrs)`}>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, whiteSpace: "nowrap" }}>
             <Switch size="small" checked={customOnly} onChange={setCustomOnly} />
             <span style={{ color: customOnly ? "#d4380d" : "#888" }}>
@@ -584,9 +712,19 @@ const SchemaBrowser: React.FC = () => {
           onChange={e => setSchemaDn(e.target.value)}
           style={{ width: 200, fontFamily: "monospace", fontSize: 11 }}
         />
-        <Tooltip title="Last inn schema på nytt">
+        <Tooltip title="Reload schema">
           <Button size="small" icon={<ReloadOutlined />} onClick={reloadSchema} loading={schemaLoading}>
             Reload
+          </Button>
+        </Tooltip>
+        <Tooltip title={`Export custom schema to LDIF (${customOcCount} OC, ${customAtCount} attrs)`}>
+          <Button
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={handleExportCustomSchema}
+            disabled={customOcCount === 0 && customAtCount === 0}
+          >
+            Export custom schema
           </Button>
         </Tooltip>
       </div>
@@ -609,9 +747,51 @@ const SchemaBrowser: React.FC = () => {
         onClose={() => setAtEditorOpen(false)}
         onSaved={handleSaved}
       />
+
+      {/* ── Custom schema export preview ──────────────────────────────────── */}
+      <Modal
+        open={exportPreviewOpen}
+        title={<span><CodeOutlined style={{ marginRight: 8 }} />Custom schema — LDIF export</span>}
+        width={720}
+        onCancel={() => setExportPreviewOpen(false)}
+        footer={
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+              Import on target server:{" "}
+              <Typography.Text code style={{ fontSize: 11 }}>
+                ldapmodify -H ldaps://host -D 'cn=admin,cn=config' -W -f schema.ldif
+              </Typography.Text>
+            </Typography.Text>
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button onClick={() => setExportPreviewOpen(false)}>Close</Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(exportLdif);
+                  message.success("Copied to clipboard");
+                }}
+              >
+                Copy to clipboard
+              </Button>
+              <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownloadLdif}>
+                Save as .ldif
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <Input.TextArea
+          value={exportLdif}
+          readOnly
+          rows={22}
+          style={{ fontFamily: "monospace", fontSize: 11 }}
+        />
+      </Modal>
     </div>
   );
 };
 
 export default SchemaBrowser;
+
+
 

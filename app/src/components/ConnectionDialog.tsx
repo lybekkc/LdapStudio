@@ -34,6 +34,7 @@ interface FormValues {
   baseDn?: string;
   timeoutSecs: number;
   readOnly: boolean;
+  enterpriseBaseOid?: string;
 }
 
 function formToProfile(values: FormValues, id?: string): ConnectionProfile {
@@ -59,6 +60,7 @@ function formToProfile(values: FormValues, id?: string): ConnectionProfile {
     baseDn: values.baseDn?.trim() || null,
     timeoutSecs: values.timeoutSecs,
     readOnly: values.readOnly,
+    enterpriseBaseOid: values.enterpriseBaseOid?.trim() || undefined,
   };
 }
 
@@ -71,6 +73,7 @@ function profileToForm(p: ConnectionProfile): FormValues {
     baseDn: p.baseDn ?? "",
     timeoutSecs: p.timeoutSecs,
     readOnly: p.readOnly ?? false,
+    enterpriseBaseOid: p.enterpriseBaseOid ?? "",
   };
   if (p.auth.kind === "SIMPLE_BIND") {
     return { ...base, authKind: "SIMPLE_BIND", bindDn: p.auth.bind_dn, password: p.auth.password };
@@ -180,6 +183,57 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({ initialValues, onSave, 
         <Input placeholder="dc=example,dc=com" />
       </Form.Item>
 
+      <Form.Item
+        name="enterpriseBaseOid"
+        label={
+          <span>
+            Enterprise base OID{" "}
+            <Text type="secondary">(your IANA PEN prefix)</Text>
+          </span>
+        }
+        validateTrigger="onBlur"
+        extra={
+          <div style={{ fontSize: 11, color: "#888", lineHeight: 1.6 }}>
+            <div style={{ marginBottom: 4 }}>
+              Enter the OID prefix that is the <strong>root of all your custom schema</strong>.
+              All object classes and attributes whose OID <em>starts with</em> this prefix
+              will be treated as custom.
+            </div>
+            <div style={{ marginBottom: 4 }}>
+              <Text strong style={{ fontSize: 11 }}>Example breakdown:</Text>
+              <div style={{ fontFamily: "monospace", fontSize: 11, marginTop: 2, color: "#555" }}>
+                <Text code style={{ fontSize: 10 }}>1.3.6.1.4.1</Text>
+                <Text type="secondary" style={{ fontSize: 10 }}> — IANA enterprises arc</Text>
+                <br />
+                <Text code style={{ fontSize: 10 }}>1.3.6.1.4.1.<strong>53391</strong></Text>
+                <Text type="secondary" style={{ fontSize: 10 }}> — your PEN (enter this as a minimum)</Text>
+                <br />
+                <Text code style={{ fontSize: 10 }}>1.3.6.1.4.1.53391<strong>.1.2</strong></Text>
+                <Text type="secondary" style={{ fontSize: 10 }}> — optional sub-arc for more precision</Text>
+              </div>
+            </div>
+            <div>
+              💡 <strong>Tip:</strong> Start with just{" "}
+              <Text code style={{ fontSize: 10 }}>1.3.6.1.4.1.NNNNN</Text>
+              {" "}(your PEN number). You can refine it to a sub-arc later if needed.
+              Find your PEN at{" "}
+              <a href="https://www.iana.org/assignments/enterprise-numbers/" target="_blank" rel="noopener noreferrer">
+                IANA Enterprise Numbers ↗
+              </a>
+            </div>
+          </div>
+        }
+        rules={[{
+          pattern: /^[0-9]+(\.[0-9]+)*$/,
+          message: "Invalid OID format — use only numbers and dots, e.g. 1.3.6.1.4.1.53391",
+        }]}
+      >
+        <Input
+          placeholder="1.3.6.1.4.1.53391"
+          style={{ fontFamily: "monospace" }}
+        />
+      </Form.Item>
+
       <Form.Item name="timeoutSecs" label="Timeout (seconds)">
         <InputNumber min={3} max={120} />
       </Form.Item>
@@ -190,13 +244,13 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({ initialValues, onSave, 
         label={
           <span>
             <LockOutlined style={{ marginRight: 6, color: "#722ed1" }} />
-            Read-only (skrivebeskyttet)
+            Read-only (write-protected)
           </span>
         }
         extra={
           <Text type="secondary" style={{ fontSize: 11 }}>
-            Blokkerer alle skriveoperasjoner. Kan låses opp midlertidig i verktøylinjen.
-            Nyttig for produksjonsmiljøer.
+            Blocks all write operations. Can be temporarily unlocked from the toolbar.
+            Useful for production environments.
           </Text>
         }
       >
@@ -241,7 +295,7 @@ const ConnectionDialog: React.FC = () => {
       render: (text: string, record: ConnectionProfile) => (
         <span>
           {record.readOnly && (
-            <Tooltip title="Read-only profil">
+            <Tooltip title="Read-only profile">
               <LockOutlined style={{ color: "#722ed1", marginRight: 6, fontSize: 11 }} />
             </Tooltip>
           )}
@@ -267,7 +321,7 @@ const ConnectionDialog: React.FC = () => {
       width: 150,
       render: (_: unknown, record: ConnectionProfile) => (
         <Space>
-          <Tooltip title="Koble til">
+          <Tooltip title="Connect">
             <Button
               type="primary"
               size="small"
@@ -278,19 +332,19 @@ const ConnectionDialog: React.FC = () => {
               Connect
             </Button>
           </Tooltip>
-          <Tooltip title="Rediger profil">
+          <Tooltip title="Edit profile">
             <Button
               size="small"
               icon={<EditOutlined />}
               onClick={() => setEditingProfile(record)}
             />
           </Tooltip>
-          <Tooltip title="Slett profil">
+          <Tooltip title="Delete profile">
             <Popconfirm
-              title="Slett denne profilen?"
-              okText="Slett"
+              title="Delete this profile?"
+              okText="Delete"
               okType="danger"
-              cancelText="Avbryt"
+              cancelText="Cancel"
               onConfirm={() => removeProfile(record.id)}
             >
               <Button size="small" danger icon={<DeleteOutlined />} />
@@ -324,10 +378,10 @@ const ConnectionDialog: React.FC = () => {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
             <Button size="small" icon={<EditOutlined />} onClick={() => setEditingProfile(undefined)}>
-              ← Tilbake til liste
+              ← Back to list
             </Button>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Redigerer: <strong>{editingProfile.name}</strong>
+              Editing: <strong>{editingProfile.name}</strong>
             </Text>
           </div>
           <ConnectionForm
@@ -375,4 +429,3 @@ const ConnectionDialog: React.FC = () => {
 };
 
 export default ConnectionDialog;
-

@@ -18,6 +18,8 @@ export interface ConnectionProfile {
   timeoutSecs: number;
   /** UI-only write guard — does not affect the actual LDAP connection */
   readOnly?: boolean;
+  /** IANA Private Enterprise Number base OID (e.g. 1.3.6.1.4.1.53391.1.2.5) */
+  enterpriseBaseOid?: string;
 }
 
 export interface ServerInfo {

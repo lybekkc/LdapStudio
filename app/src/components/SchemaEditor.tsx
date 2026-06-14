@@ -146,7 +146,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
         definitionToSave = buildOcDefinition(vals);
       } catch { return; }
     }
-    if (!definitionToSave) { message.error("Definisjon er tom"); return; }
+    if (!definitionToSave) { message.error("Definition is empty"); return; }
 
     setSaving(true);
     try {
@@ -157,10 +157,10 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
         definitionToSave,
         `${isNew ? "Created" : "Modified"} ObjectClass${initial?.name ? ` "${initial.name}"` : ""}`,
       );
-      message.success(isNew ? "ObjectClass opprettet" : "ObjectClass oppdatert");
+      message.success(isNew ? "ObjectClass created" : "ObjectClass updated");
       onSaved();
     } catch (e) {
-      message.error(`Feil: ${e}`);
+      message.error(`Error: ${e}`);
     } finally {
       setSaving(false);
     }
@@ -169,20 +169,20 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
   const handleDelete = () => {
     if (!initial?.raw) return;
     Modal.confirm({
-      title: `Slett objectClass "${initial.name}"?`,
+      title: `Delete objectClass "${initial.name}"?`,
       icon: <ExclamationCircleOutlined style={{ color: "#d4380d" }} />,
-      content: "Dette vil fjerne klassen fra schema-definisjonen. Allerede brukte entries påvirkes ikke.",
-      okText: "Slett", okType: "danger", cancelText: "Avbryt",
+      content: "This will remove the class from the schema definition. Entries already using it will not be affected.",
+      okText: "Delete", okType: "danger", cancelText: "Cancel",
       onOk: async () => {
         try {
           await modifySchemaEntry(
             schemaDn, "objectClasses", initial.raw!, "",
             `Deleted ObjectClass "${initial.name}"`,
           );
-          message.success("ObjectClass slettet fra schema");
+          message.success("ObjectClass removed from schema");
           onSaved();
         } catch (e) {
-          message.error(`Feil: ${e}`);
+          message.error(`Error: ${e}`);
         }
       },
     });
@@ -201,7 +201,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
   return (
     <Modal
       open={open}
-      title={isNew ? "Ny ObjectClass" : `Rediger: ${initial?.name}`}
+      title={isNew ? "New ObjectClass" : `Edit: ${initial?.name}`}
       width={680}
       onCancel={onClose}
       footer={
@@ -209,14 +209,14 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
           <div>
             {!isNew && (
               <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
-                Slett fra schema
+                Delete from schema
               </Button>
             )}
           </div>
           <Space>
-            <Button onClick={onClose}>Avbryt</Button>
+            <Button onClick={onClose}>Cancel</Button>
             <Button type="primary" loading={saving} onClick={handleSave}>
-              {isNew ? "Opprett" : "Lagre"}
+              {isNew ? "Create" : "Save"}
             </Button>
           </Space>
         </div>
@@ -225,7 +225,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
       <Alert
         type="warning"
         showIcon
-        message="Schema-endringer krever skriverettigheter til schema-entryen på LDAP-serveren."
+        message="Schema changes require write access to the schema entry on the LDAP server."
         style={{ marginBottom: 12 }}
       />
       <Tabs
@@ -234,7 +234,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
         items={[
           {
             key: "form",
-            label: "Skjema",
+            label: "Form",
             children: (
               <Form form={form} layout="vertical" size="small">
                 <Space.Compact style={{ width: "100%" }}>
@@ -244,7 +244,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
                       style={{ fontFamily: "monospace" }}
                       suffix={
                         isNew && enterpriseBase ? (
-                          <Tooltip title={`Foreslå neste ledige OID under ${enterpriseBase}`}>
+                          <Tooltip title={`Suggest next available OID under ${enterpriseBase}`}>
                             <BulbOutlined
                               style={{ color: "#faad14", cursor: "pointer" }}
                               onClick={() => {
@@ -266,41 +266,41 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
                   </Form.Item>
                 </Space.Compact>
 
-                <Form.Item name="name" label="Navn (primær)" rules={[{ required: true }]}>
+                <Form.Item name="name" label="Name (primary)" rules={[{ required: true }]}>
                   <Input placeholder="myObjectClass" />
                 </Form.Item>
 
-                <Form.Item name="names" label="Alle navn (alias)">
-                  <Select mode="tags" placeholder="Skriv og trykk Enter for hvert navn" />
+                <Form.Item name="names" label="All names (aliases)">
+                  <Select mode="tags" placeholder="Type and press Enter for each name" />
                 </Form.Item>
 
-                <Form.Item name="description" label="Beskrivelse">
-                  <Input placeholder="Valgfri beskrivelse" />
+                <Form.Item name="description" label="Description">
+                  <Input placeholder="Optional description" />
                 </Form.Item>
 
-                <Form.Item name="superior" label="SUP (overklasse)">
-                  <Select mode="multiple" options={allOcNames} placeholder="Velg eller skriv OC-navn" showSearch />
+                <Form.Item name="superior" label="SUP (parent class)">
+                  <Select mode="multiple" options={allOcNames} placeholder="Select or type OC name" showSearch />
                 </Form.Item>
 
-                <Form.Item name="mustAttrs" label="MUST (påkrevde attributter)">
+                <Form.Item name="mustAttrs" label="MUST (required attributes)">
                   <Select mode="multiple" options={allAttrNames}
-                    placeholder="Velg attributter" showSearch />
+                    placeholder="Select attributes" showSearch />
                 </Form.Item>
 
-                <Form.Item name="mayAttrs" label="MAY (valgfrie attributter)">
+                <Form.Item name="mayAttrs" label="MAY (optional attributes)">
                   <Select mode="multiple" options={allAttrNames}
-                    placeholder="Velg attributter" showSearch />
+                    placeholder="Select attributes" showSearch />
                 </Form.Item>
               </Form>
             ),
           },
           {
             key: "raw",
-            label: "Rå definisjon",
+            label: "Raw definition",
             children: (
               <div>
                 <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 8 }}>
-                  RFC 4512 objectClassDescription-format. Generert automatisk fra skjema, eller rediger direkte.
+                  RFC 4512 objectClassDescription format. Generated automatically from the form, or edit directly.
                 </Text>
                 <TextArea
                   value={rawValue}
@@ -392,17 +392,17 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
         definitionToSave = buildAtDefinition(vals);
       } catch { return; }
     }
-    if (!definitionToSave) { message.error("Definisjon er tom"); return; }
+    if (!definitionToSave) { message.error("Definition is empty"); return; }
     setSaving(true);
     try {
       await modifySchemaEntry(
         schemaDn, "attributeTypes", initial?.raw ?? "", definitionToSave,
         `${isNew ? "Created" : "Modified"} AttributeType${initial?.name ? ` "${initial.name}"` : ""}`,
       );
-      message.success(isNew ? "AttributeType opprettet" : "AttributeType oppdatert");
+      message.success(isNew ? "AttributeType created" : "AttributeType updated");
       onSaved();
     } catch (e) {
-      message.error(`Feil: ${e}`);
+      message.error(`Error: ${e}`);
     } finally {
       setSaving(false);
     }
@@ -411,20 +411,20 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
   const handleDelete = () => {
     if (!initial?.raw) return;
     Modal.confirm({
-      title: `Slett attributt "${initial.name}"?`,
+      title: `Delete attribute "${initial.name}"?`,
       icon: <ExclamationCircleOutlined style={{ color: "#d4380d" }} />,
-      content: "Dette vil fjerne attributtdefinisjonen fra schema.",
-      okText: "Slett", okType: "danger", cancelText: "Avbryt",
+      content: "This will remove the attribute definition from the schema.",
+      okText: "Delete", okType: "danger", cancelText: "Cancel",
       onOk: async () => {
         try {
           await modifySchemaEntry(
             schemaDn, "attributeTypes", initial.raw!, "",
             `Deleted AttributeType "${initial.name}"`,
           );
-          message.success("AttributeType slettet");
+          message.success("AttributeType deleted");
           onSaved();
         } catch (e) {
-          message.error(`Feil: ${e}`);
+          message.error(`Error: ${e}`);
         }
       },
     });
@@ -457,7 +457,7 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
   return (
     <Modal
       open={open}
-      title={isNew ? "Ny AttributeType" : `Rediger: ${initial?.name}`}
+      title={isNew ? "New AttributeType" : `Edit: ${initial?.name}`}
       width={700}
       onCancel={onClose}
       footer={
@@ -465,14 +465,14 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
           <div>
             {!isNew && (
               <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
-                Slett fra schema
+                Delete from schema
               </Button>
             )}
           </div>
           <Space>
-            <Button onClick={onClose}>Avbryt</Button>
+            <Button onClick={onClose}>Cancel</Button>
             <Button type="primary" loading={saving} onClick={handleSave}>
-              {isNew ? "Opprett" : "Lagre"}
+              {isNew ? "Create" : "Save"}
             </Button>
           </Space>
         </div>
@@ -480,7 +480,7 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
     >
       <Alert
         type="warning" showIcon
-        message="Schema-endringer krever skriverettigheter til schema-entryen."
+        message="Schema changes require write access to the schema entry."
         style={{ marginBottom: 12 }}
       />
       <Tabs
@@ -489,7 +489,7 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
         items={[
           {
             key: "form",
-            label: "Skjema",
+            label: "Form",
             children: (
               <Form form={form} layout="vertical" size="small">
                 <Space.Compact style={{ width: "100%" }}>
@@ -499,7 +499,7 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
                       style={{ fontFamily: "monospace" }}
                       suffix={
                         isNew && enterpriseBase ? (
-                          <Tooltip title={`Foreslå neste ledige OID under ${enterpriseBase}`}>
+                          <Tooltip title={`Suggest next available OID under ${enterpriseBase}`}>
                             <BulbOutlined
                               style={{ color: "#faad14", cursor: "pointer" }}
                               onClick={() => {
@@ -512,25 +512,25 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
                       }
                     />
                   </Form.Item>
-                  <Form.Item name="name" label="Navn" rules={[{ required: true }]} style={{ flex: 1 }}>
+                  <Form.Item name="name" label="Name" rules={[{ required: true }]} style={{ flex: 1 }}>
                     <Input placeholder="myAttr" />
                   </Form.Item>
                 </Space.Compact>
 
-                <Form.Item name="names" label="Alle navn (alias)">
-                  <Select mode="tags" placeholder="Skriv og trykk Enter" />
+                <Form.Item name="names" label="All names (aliases)">
+                  <Select mode="tags" placeholder="Type and press Enter" />
                 </Form.Item>
 
-                <Form.Item name="description" label="Beskrivelse">
+                <Form.Item name="description" label="Description">
                   <Input />
                 </Form.Item>
 
-                <Form.Item name="superior" label="SUP (overordnet attributt)">
-                  <Select showSearch allowClear options={allAttrNames} placeholder="Arv fra…" />
+                <Form.Item name="superior" label="SUP (parent attribute)">
+                  <Select showSearch allowClear options={allAttrNames} placeholder="Inherit from…" />
                 </Form.Item>
 
                 <Form.Item name="syntax" label="Syntax (OID)">
-                  <Select showSearch allowClear options={syntaxOptions} placeholder="Velg syntax…" />
+                  <Select showSearch allowClear options={syntaxOptions} placeholder="Select syntax…" />
                 </Form.Item>
 
                 <Space style={{ width: "100%" }}>
@@ -567,11 +567,11 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
           },
           {
             key: "raw",
-            label: "Rå definisjon",
+            label: "Raw definition",
             children: (
               <div>
                 <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 8 }}>
-                  RFC 4512 attributeTypeDescription-format.
+                  RFC 4512 attributeTypeDescription format.
                 </Text>
                 <TextArea
                   value={rawValue}
@@ -588,6 +588,3 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
     </Modal>
   );
 };
-
-
-

@@ -92,12 +92,12 @@ export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initial
       onCancel={onClose}
       footer={
         <Space>
-          <Button onClick={onClose}>Lukk</Button>
+          <Button onClick={onClose}>Close</Button>
           <Button icon={<DownloadOutlined />} onClick={() => handleExport(false)} loading={exporting}>
-            Forhåndsvis
+            Preview
           </Button>
           <Button type="primary" icon={<DownloadOutlined />} onClick={() => handleExport(true)} loading={exporting}>
-            Last ned .ldif
+            Download .ldif
           </Button>
         </Space>
       }
@@ -136,10 +136,10 @@ export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initial
         </Space>
 
         <Space align="start" size={24}>
-          <Form.Item label="Maks antall entries">
+          <Form.Item label="Max entries">
             <Space>
               <Form.Item name="limitAll" valuePropName="checked" noStyle>
-                <Switch size="small" checkedChildren="Alle" unCheckedChildren="Antall" />
+                <Switch size="small" checkedChildren="All" unCheckedChildren="Limit" />
               </Form.Item>
               <Form.Item
                 noStyle
@@ -156,7 +156,7 @@ export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initial
             </Space>
           </Form.Item>
 
-          <Form.Item name="includeOperational" label="Operasjonelle attributter" valuePropName="checked">
+          <Form.Item name="includeOperational" label="Operational attributes" valuePropName="checked">
             <Switch size="small" />
           </Form.Item>
         </Space>
@@ -165,14 +165,14 @@ export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initial
           <Alert
             type="success"
             showIcon
-            message={`${exportedCount} entries klar for eksport`}
+            message={`${exportedCount} entries ready for export`}
             style={{ marginBottom: 8 }}
           />
         )}
 
         {preview && (
           <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>Forhåndsvisning (første 80 linjer):</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>Preview (first 80 lines):</Text>
             <TextArea
               value={preview}
               readOnly
@@ -260,7 +260,7 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
   };
 
   const handleImport = async () => {
-    if (!ldifContent.trim()) { message.warning("Ingen LDIF-innhold"); return; }
+    if (!ldifContent.trim()) { message.warning("No LDIF content"); return; }
     setImporting(true);
     setResult(null);
     try {
@@ -278,15 +278,15 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
       }
 
       if (!dryRun && r.failed === 0) {
-        message.success(`Import fullført: +${r.added} ~${r.modified} -${r.deleted}`);
+        message.success(`Import completed: +${r.added} ~${r.modified} -${r.deleted}`);
       } else if (!dryRun && (r.added > 0 || r.modified > 0 || r.deleted > 0)) {
-        message.warning(`Delvis fullført: +${r.added} ~${r.modified} -${r.deleted}, ${r.failed} feilet`);
+        message.warning(`Partially completed: +${r.added} ~${r.modified} -${r.deleted}, ${r.failed} failed`);
       }
       // Always refresh the tree after a real import attempt so newly
       // added (or already-existing) entries become visible.
       if (!dryRun) onImported?.();
     } catch (e) {
-      message.error(`Import feilet: ${e}`);
+      message.error(`Import failed: ${e}`);
     } finally {
       setImporting(false);
     }
@@ -317,14 +317,14 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
       onCancel={handleClose}
       footer={
         <Space>
-          <Button onClick={handleClose}>Lukk</Button>
+          <Button onClick={handleClose}>Close</Button>
           <Button
             type={dryRun ? "default" : "primary"}
             loading={importing}
             onClick={handleImport}
             icon={dryRun ? <CheckCircleOutlined /> : <UploadOutlined />}
           >
-            {dryRun ? "Dry run (valider)" : "Importer nå"}
+            {dryRun ? "Dry run (validate)" : "Import now"}
           </Button>
         </Space>
       }
@@ -358,7 +358,7 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
           },
           {
             key: "paste",
-            label: "Lim inn LDIF",
+            label: "Paste LDIF",
             children: (
               <TextArea
                 value={ldifContent}
@@ -391,20 +391,20 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
           <span style={{ fontSize: 12 }}>
             <Text strong>Dry run</Text>
             <Text type="secondary" style={{ marginLeft: 4, fontSize: 11 }}>
-              (valider uten å skrive)
+              (validate without writing)
             </Text>
           </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Switch size="small" checked={continueOnError} onChange={setContinueOnError} />
-          <Text style={{ fontSize: 12 }}>Fortsett ved feil</Text>
+          <Text style={{ fontSize: 12 }}>Continue on error</Text>
         </div>
       </Space>
 
       {dryRun && (
         <Alert
           type="info" showIcon
-          message="Dry run aktivert — ingen endringer vil bli lagret"
+          message="Dry run active — no changes will be saved"
           style={{ marginTop: 8 }}
         />
       )}
@@ -412,19 +412,19 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
       {/* Result */}
       {result && (
         <div style={{ marginTop: 12 }}>
-          <Divider orientation="left" style={{ fontSize: 12, margin: "8px 0" }}>Resultat</Divider>
+          <Divider orientation="left" style={{ fontSize: 12, margin: "8px 0" }}>Result</Divider>
           <Space wrap>
-            <Tag color="green" icon={<CheckCircleOutlined />}>+{result.added} lagt til</Tag>
-            <Tag color="orange">~{result.modified} endret</Tag>
-            <Tag color="red">-{result.deleted} slettet</Tag>
-            {result.skipped > 0   && <Tag color="default">{result.skipped} hoppet over</Tag>}
-            {result.failed > 0    && <Tag color="red" icon={<CloseCircleOutlined />}>{result.failed} feilet</Tag>}
+            <Tag color="green" icon={<CheckCircleOutlined />}>+{result.added} added</Tag>
+            <Tag color="orange">~{result.modified} modified</Tag>
+            <Tag color="red">-{result.deleted} deleted</Tag>
+            {result.skipped > 0   && <Tag color="default">{result.skipped} skipped</Tag>}
+            {result.failed > 0    && <Tag color="red" icon={<CloseCircleOutlined />}>{result.failed} failed</Tag>}
           </Space>
 
           {filePath && (
             <div style={{ marginTop: 6 }}>
               <Text type="secondary" style={{ fontSize: 11 }}>
-                📄 Logg skrevet til:{" "}
+                📄 Log written to:{" "}
                 <code style={{ fontSize: 11 }}>
                   {filePath.replace(/\.[^./\\]+$/, "") + ".log"}
                 </code>
@@ -434,7 +434,7 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
 
           {result.errors.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              <Text type="danger" style={{ fontSize: 11, fontWeight: 600 }}>Feil:</Text>
+              <Text type="danger" style={{ fontSize: 11, fontWeight: 600 }}>Errors:</Text>
               <div style={{
                 marginTop: 4, padding: "6px 8px",
                 background: "#fff2f0", border: "1px solid #ffccc7", borderRadius: 4,
@@ -452,12 +452,12 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
           {dryRun && result.failed === 0 && (
             <Alert
               type="success" showIcon
-              message="Dry run OK — klikk 'Importer nå' for å utføre"
+              message="Dry run OK — click 'Import now' to execute"
               style={{ marginTop: 8 }}
               action={
                 <Button size="small" type="primary"
                   onClick={() => { setDryRun(false); }}>
-                  Importer nå
+                  Import now
                 </Button>
               }
             />
@@ -467,4 +467,3 @@ export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImpor
     </Modal>
   );
 };
-
