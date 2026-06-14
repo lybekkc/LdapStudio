@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal, Tabs, Form, Input, Select, Switch, Button,
-  Space, Typography, Alert, message,
+  Space, Typography, Alert, message, Tooltip,
 } from "antd";
 import {
-  DeleteOutlined, ExclamationCircleOutlined,
+  DeleteOutlined, ExclamationCircleOutlined, BulbOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import type { ObjectClass, AttributeType } from "../types";
+import { suggestNextOid } from "./SchemaBrowser";
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -92,11 +93,12 @@ interface OcEditorProps {
   open: boolean;
   schemaDn: string;
   initial: ObjectClass | null;   // null = create new
+  enterpriseBase: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, onClose, onSaved }) => {
+export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, enterpriseBase, onClose, onSaved }) => {
   const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<OcFormValues>();
   const [rawValue, setRawValue]   = useState("");
@@ -237,7 +239,23 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, onC
               <Form form={form} layout="vertical" size="small">
                 <Space.Compact style={{ width: "100%" }}>
                   <Form.Item name="oid" label="OID" rules={[{ required: true }]} style={{ flex: 1 }}>
-                    <Input placeholder="1.3.6.1.4.1.XXXXX.1" style={{ fontFamily: "monospace" }} />
+                    <Input
+                      placeholder="1.3.6.1.4.1.XXXXX.1"
+                      style={{ fontFamily: "monospace" }}
+                      suffix={
+                        isNew && enterpriseBase ? (
+                          <Tooltip title={`Foreslå neste ledige OID under ${enterpriseBase}`}>
+                            <BulbOutlined
+                              style={{ color: "#faad14", cursor: "pointer" }}
+                              onClick={() => {
+                                const ocOids = schema?.objectClasses.map((oc) => oc.oid) ?? [];
+                                form.setFieldValue("oid", suggestNextOid(enterpriseBase, ocOids));
+                              }}
+                            />
+                          </Tooltip>
+                        ) : null
+                      }
+                    />
                   </Form.Item>
                   <Form.Item name="kind" label="Type" rules={[{ required: true }]} style={{ width: 140 }}>
                     <Select options={[
@@ -306,6 +324,7 @@ interface AtEditorProps {
   open: boolean;
   schemaDn: string;
   initial: AttributeType | null;
+  enterpriseBase: string | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -323,7 +342,7 @@ const COMMON_SYNTAXES = [
   { value: "1.3.6.1.4.1.1466.115.121.1.50", label: "Telephone Number" },
 ];
 
-export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, onClose, onSaved }) => {
+export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, enterpriseBase, onClose, onSaved }) => {
   const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<AtFormValues>();
   const [rawValue, setRawValue]   = useState("");
@@ -475,7 +494,23 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, onC
               <Form form={form} layout="vertical" size="small">
                 <Space.Compact style={{ width: "100%" }}>
                   <Form.Item name="oid" label="OID" rules={[{ required: true }]} style={{ flex: 2 }}>
-                    <Input placeholder="1.3.6.1.4.1.XXXXX.2" style={{ fontFamily: "monospace" }} />
+                    <Input
+                      placeholder="1.3.6.1.4.1.XXXXX.2"
+                      style={{ fontFamily: "monospace" }}
+                      suffix={
+                        isNew && enterpriseBase ? (
+                          <Tooltip title={`Foreslå neste ledige OID under ${enterpriseBase}`}>
+                            <BulbOutlined
+                              style={{ color: "#faad14", cursor: "pointer" }}
+                              onClick={() => {
+                                const atOids = schema?.attributeTypes.map((at) => at.oid) ?? [];
+                                form.setFieldValue("oid", suggestNextOid(enterpriseBase, atOids));
+                              }}
+                            />
+                          </Tooltip>
+                        ) : null
+                      }
+                    />
                   </Form.Item>
                   <Form.Item name="name" label="Navn" rules={[{ required: true }]} style={{ flex: 1 }}>
                     <Input placeholder="myAttr" />

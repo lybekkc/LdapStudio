@@ -42,6 +42,72 @@ function isStandardOid(oid: string): boolean {
   return STANDARD_OID_PREFIXES.some((p) => oid.startsWith(p));
 }
 
+// ─── Enterprise OID utilities ─────────────────────────────────────────────────
+
+/**
+ * Detect the IANA Private Enterprise Number arc (1.3.6.1.4.1.XXXXX)
+ * from a list of custom OIDs. Returns the most-used enterprise base OID.
+ */
+export function detectEnterpriseBase(oids: string[]): string | null {
+  const penOids = oids.filter(
+    (oid) => oid.startsWith("1.3.6.1.4.1.") && !isStandardOid(oid)
+  );
+  if (penOids.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const oid of penOids) {
+    const parts = oid.split(".");
+    if (parts.length < 7) continue;
+    const base = parts.slice(0, 7).join("."); // 1.3.6.1.4.1.XXXXX
+    counts.set(base, (counts.get(base) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let max = 0;
+  for (const [base, count] of counts) {
+    if (count > max) { max = count; best = base; }
+  }
+  return best;
+}
+
+/**
+ * Given a set of existing OIDs under a common base, suggest the next
+ * available OID by finding the common sub-arc and incrementing the max leaf.
+ */
+export function suggestNextOid(enterpriseBase: string, oids: string[]): string {
+  const under = oids.filter(
+    (oid) => oid.startsWith(enterpriseBase + ".") && !isStandardOid(oid)
+  );
+  if (under.length === 0) return `${enterpriseBase}.1`;
+
+  // Find the most common parent path (one level below enterprise base)
+  const pathCounts = new Map<string, number>();
+  for (const oid of under) {
+    const parts = oid.split(".");
+    if (parts.length < 8) continue;
+    const parent = parts.slice(0, 8).join("."); // 1.3.6.1.4.1.X.Y
+    pathCounts.set(parent, (pathCounts.get(parent) ?? 0) + 1);
+  }
+
+  let parentArc = enterpriseBase;
+  let maxPCount = 0;
+  for (const [p, c] of pathCounts) {
+    if (c > maxPCount) { maxPCount = c; parentArc = p; }
+  }
+
+  // Find siblings under parentArc and get max leaf
+  const siblings = under.filter((oid) => {
+    const parts = oid.split(".");
+    const parent = parts.slice(0, -1).join(".");
+    return parent === parentArc;
+  });
+  const maxLeaf = siblings.reduce((m, oid) => {
+    const leaf = parseInt(oid.split(".").pop() ?? "0", 10);
+    return isNaN(leaf) ? m : Math.max(m, leaf);
+  }, 0);
+
+  return `${parentArc}.${maxLeaf + 1}`;
+}
+
 // ─── Object Classes tab ──────────────────────────────────────────────────────
 
 const kindColors: Record<string, string> = {
@@ -55,6 +121,7 @@ interface OcTabProps {
   schemaDn: string;
   readOnly: boolean;
   customOnly: boolean;
+  enterpriseBase: string | null;
   onEdit: (oc: ObjectClass) => void;
   onNew: () => void;
 }
@@ -199,6 +266,7 @@ interface AtTabProps {
   schemaDn: string;
   readOnly: boolean;
   customOnly: boolean;
+  enterpriseBase: string | null;
   onEdit: (at: AttributeType) => void;
   onNew: () => void;
 }
@@ -378,8 +446,15 @@ const SchemaBrowser: React.FC = () => {
 
   if (!schema) return null;
 
-  const customOcCount = schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).length;
-  const customAtCount = schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).length;
+  const customOcCount  = schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).length;
+  const customAtCount  = schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).length;
+  const allCustomOids  = [
+    ...schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).map((oc) => oc.oid),
+    ...schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).map((at) => at.oid),
+  ];
+  const enterpriseBase = detectEnterpriseBase(allCustomOids);
+
+  const penNumber = enterpriseBase?.split(".")[6] ?? null;
 
   const tabItems = [
     {
@@ -393,6 +468,7 @@ const SchemaBrowser: React.FC = () => {
           schemaDn={schemaDn}
           readOnly={isReadOnly}
           customOnly={customOnly}
+          enterpriseBase={enterpriseBase}
           onEdit={oc => { setOcEditing(oc); setOcEditorOpen(true); }}
           onNew={() => { setOcEditing(null); setOcEditorOpen(true); }}
         />
@@ -409,6 +485,7 @@ const SchemaBrowser: React.FC = () => {
           schemaDn={schemaDn}
           readOnly={isReadOnly}
           customOnly={customOnly}
+          enterpriseBase={enterpriseBase}
           onEdit={at => { setAtEditing(at); setAtEditorOpen(true); }}
           onNew={() => { setAtEditing(null); setAtEditorOpen(true); }}
         />
@@ -451,6 +528,38 @@ const SchemaBrowser: React.FC = () => {
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "8px 12px" }}>
+
+      {/* Enterprise OID banner */}
+      {enterpriseBase && (
+        <div style={{
+          marginBottom: 10, padding: "6px 12px",
+          background: "#fff7e6", border: "1px solid #ffd591", borderRadius: 6,
+          display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+        }}>
+          <span style={{ fontSize: 12 }}>
+            🏢 <strong>Detektert enterprise OID:</strong>{" "}
+            <Text code style={{ fontSize: 12 }}>{enterpriseBase}</Text>
+            {penNumber && (
+              <span style={{ color: "#888", marginLeft: 6 }}>
+                (IANA PEN: <strong>{penNumber}</strong>)
+              </span>
+            )}
+          </span>
+          <span style={{ color: "#888", fontSize: 11 }}>
+            {customOcCount} custom OCs · {customAtCount} custom attrs
+          </span>
+          {penNumber && (
+            <a
+              href={`https://www.iana.org/assignments/enterprise-numbers/enterprise-numbers`}
+              target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 11, marginLeft: "auto" }}
+            >
+              Verifiser i IANA-registeret ↗
+            </a>
+          )}
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Search
           placeholder="Filter by name or OID…"
@@ -488,6 +597,7 @@ const SchemaBrowser: React.FC = () => {
         open={ocEditorOpen}
         schemaDn={schemaDn}
         initial={ocEditing}
+        enterpriseBase={enterpriseBase}
         onClose={() => setOcEditorOpen(false)}
         onSaved={handleSaved}
       />
@@ -495,6 +605,7 @@ const SchemaBrowser: React.FC = () => {
         open={atEditorOpen}
         schemaDn={schemaDn}
         initial={atEditing}
+        enterpriseBase={enterpriseBase}
         onClose={() => setAtEditorOpen(false)}
         onSaved={handleSaved}
       />
