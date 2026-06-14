@@ -417,6 +417,7 @@ const SearchView: React.FC = () => {
   }
 
   return (
+    <>
     <Splitter style={{ height: "100%" }} onResizeEnd={(sizes) => setSearchSplitSize(sizes[0])}>
 
       {/* ── LEFT: controls + result list ─────────────────────────────────── */}
@@ -675,6 +676,7 @@ const SearchView: React.FC = () => {
           />
         )}
       </Splitter.Panel>
+    </Splitter>
 
       {/* ── Save / Edit search modal ──────────────────────────────────────── */}
       <SaveSearchModal
@@ -685,8 +687,7 @@ const SearchView: React.FC = () => {
         onSave={handleSave}
         onCancel={() => { setSaveModalOpen(false); setEditingSearch(null); }}
       />
-
-    </Splitter>
+    </>
   );
 };
 
