@@ -9,6 +9,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.7.0] - 2026-06-14
+
+### Added
+- **Edit saved searches** — pencil icon on each saved search opens the modal pre-filled; supports changing name, filter, base DN and scope
+- **Auto-generated search name** — if you leave the name field blank when saving, a readable name is generated from the filter and base DN (e.g. `objectClass=person @ ou=Personer`)
+- **DN browser button** in the save/edit search modal — browse the DIT tree to pick a base DN without typing
+- Filter and base DN are now fully editable in the save/edit modal
+
+### Fixed
+- Save search (star icon) did nothing — `SaveSearchModal` was placed inside `<Splitter>` which silently ignores non-Panel children; moved outside the Splitter
+- Edit saved search modal did not pre-fill values — replaced `useEffect`+`setFieldsValue` pattern with `key`-based remount and `initialValues` for reliable form population
+- Production build failed after Vite 8 upgrade — `minify: "esbuild"` requires esbuild to be installed separately in Vite 8; changed to `minify: true` (uses built-in OXC minifier)
+- Updated macOS build target from `safari13` (2019) to `safari15` to match Tauri 2 minimum requirements
+
+### Changed
+- **React 18 → 19**, **Vite 6 → 8**, **@vitejs/plugin-react 4 → 6** — no breaking changes in application code
+- Rust patch dependency updates (wasm-bindgen, time, memchr, etc.)
+
+---
+
 ## [0.6.0] - 2026-06-12
 
 ### Added
