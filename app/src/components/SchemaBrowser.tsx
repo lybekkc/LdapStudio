@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip } from "antd";
+import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip, Switch } from "antd";
 import { PlusOutlined, EditOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { OcEditor, AtEditor } from "./SchemaEditor";
@@ -11,9 +11,35 @@ const { Text } = Typography;
 // ─── Schema DN detection ─────────────────────────────────────────────────────
 
 async function detectSchemaDn(): Promise<string> {
-  // The schema DN is available via the subschemaSubentry in rootDSE.
-  // Since we already load the schema, we know it exists — default fallback:
   return "cn=schema";
+}
+
+// ─── Custom OID detection ─────────────────────────────────────────────────────
+
+/**
+ * OID prefixes belonging to well-known standard / vendor LDAP schemas.
+ * Anything NOT matching these is considered potentially custom/user-defined.
+ */
+const STANDARD_OID_PREFIXES = [
+  "2.5.",               // X.500 / ITU-T core schema (cn, sn, person, etc.)
+  "0.9.2342.",          // RFC 1274 / inetOrgPerson (uid, mail, dc, etc.)
+  "1.3.6.1.4.1.1466.", // IETF LDAP (RFC 4519, 4523, etc.)
+  "1.3.6.1.4.1.4203.", // OpenLDAP Foundation
+  "1.3.6.1.4.1.18060.",// Apache Directory Server
+  "1.3.6.1.4.1.42.",   // Sun / Oracle Directory Server
+  "1.3.6.1.4.1.7165.", // Samba
+  "1.3.6.1.4.1.11.",   // HP / Hewlett-Packard
+  "1.3.6.1.4.1.15953.",// 389 DS / Red Hat DS
+  "1.3.6.1.4.1.26027.",// Oracle Unified Directory
+  "1.3.6.1.4.1.2554.", // OpenDJ / ForgeRock
+  "1.3.6.1.1.",        // LDAP protocol extensions
+  "1.2.840.",          // US national (RSA, PKCS, etc.)
+  "2.16.840.",         // US ANSI (PKIX, X.509, etc.)
+  "1.3.14.3.2.",       // ISO/IEC (DES, SHA, etc.)
+];
+
+function isStandardOid(oid: string): boolean {
+  return STANDARD_OID_PREFIXES.some((p) => oid.startsWith(p));
 }
 
 // ─── Object Classes tab ──────────────────────────────────────────────────────
@@ -28,22 +54,23 @@ interface OcTabProps {
   filter: string;
   schemaDn: string;
   readOnly: boolean;
+  customOnly: boolean;
   onEdit: (oc: ObjectClass) => void;
   onNew: () => void;
 }
 
-const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, readOnly, onEdit, onNew }) => {
+const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, customOnly, readOnly, onEdit, onNew }) => {
   const schema = useAppStore((s) => s.schema);
   const [selected, setSelected] = useState<ObjectClass | null>(null);
 
   if (!schema) return null;
 
-  const filtered = schema.objectClasses.filter(
-    (oc) =>
-      !filter ||
+  const filtered = schema.objectClasses.filter((oc) => {
+    if (customOnly && isStandardOid(oc.oid)) return false;
+    return !filter ||
       oc.name.toLowerCase().includes(filter.toLowerCase()) ||
-      oc.oid.includes(filter)
-  );
+      oc.oid.includes(filter);
+  });
 
   const columns = [
     {
@@ -52,7 +79,12 @@ const ObjectClassesTab: React.FC<OcTabProps> = ({ filter, readOnly, onEdit, onNe
       key: "name",
       sorter: (a: ObjectClass, b: ObjectClass) => a.name.localeCompare(b.name),
       render: (name: string, record: ObjectClass) => (
-        <a onClick={() => setSelected(record)}>{name || record.oid}</a>
+        <span>
+          <a onClick={() => setSelected(record)}>{name || record.oid}</a>
+          {!isStandardOid(record.oid) && (
+            <Tag color="volcano" style={{ marginLeft: 6, fontSize: 10 }}>custom</Tag>
+          )}
+        </span>
       ),
     },
     {
@@ -166,22 +198,23 @@ interface AtTabProps {
   filter: string;
   schemaDn: string;
   readOnly: boolean;
+  customOnly: boolean;
   onEdit: (at: AttributeType) => void;
   onNew: () => void;
 }
 
-const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, readOnly, onEdit, onNew }) => {
+const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, readOnly, onEdit, onNew }) => {
   const schema = useAppStore((s) => s.schema);
   const [selected, setSelected] = useState<AttributeType | null>(null);
 
   if (!schema) return null;
 
-  const filtered = schema.attributeTypes.filter(
-    (at) =>
-      !filter ||
+  const filtered = schema.attributeTypes.filter((at) => {
+    if (customOnly && isStandardOid(at.oid)) return false;
+    return !filter ||
       at.name.toLowerCase().includes(filter.toLowerCase()) ||
-      at.oid.includes(filter)
-  );
+      at.oid.includes(filter);
+  });
 
   const columns = [
     {
@@ -190,7 +223,12 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, readOnly, onEdit, onN
       key: "name",
       sorter: (a: AttributeType, b: AttributeType) => a.name.localeCompare(b.name),
       render: (name: string, record: AttributeType) => (
-        <a onClick={() => setSelected(record)}>{name || record.oid}</a>
+        <span>
+          <a onClick={() => setSelected(record)}>{name || record.oid}</a>
+          {!isStandardOid(record.oid) && (
+            <Tag color="volcano" style={{ marginLeft: 6, fontSize: 10 }}>custom</Tag>
+          )}
+        </span>
       ),
     },
     {
@@ -306,9 +344,10 @@ const SchemaBrowser: React.FC = () => {
 
   // Editing state
   const [ocEditorOpen, setOcEditorOpen] = useState(false);
-  const [ocEditing,    setOcEditing]    = useState<ObjectClass | null>(null); // null = new
+  const [ocEditing,    setOcEditing]    = useState<ObjectClass | null>(null);
   const [atEditorOpen, setAtEditorOpen] = useState(false);
   const [atEditing,    setAtEditing]    = useState<AttributeType | null>(null);
+  const [customOnly,   setCustomOnly]   = useState(false);
 
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
 
@@ -339,15 +378,21 @@ const SchemaBrowser: React.FC = () => {
 
   if (!schema) return null;
 
+  const customOcCount = schema.objectClasses.filter((oc) => !isStandardOid(oc.oid)).length;
+  const customAtCount = schema.attributeTypes.filter((at) => !isStandardOid(at.oid)).length;
+
   const tabItems = [
     {
       key: "oc",
-      label: `Object Classes (${schema.objectClasses.length})`,
+      label: customOnly
+        ? `Custom OC (${customOcCount})`
+        : `Object Classes (${schema.objectClasses.length})`,
       children: (
         <ObjectClassesTab
           filter={filter}
           schemaDn={schemaDn}
           readOnly={isReadOnly}
+          customOnly={customOnly}
           onEdit={oc => { setOcEditing(oc); setOcEditorOpen(true); }}
           onNew={() => { setOcEditing(null); setOcEditorOpen(true); }}
         />
@@ -355,12 +400,15 @@ const SchemaBrowser: React.FC = () => {
     },
     {
       key: "at",
-      label: `Attribute Types (${schema.attributeTypes.length})`,
+      label: customOnly
+        ? `Custom Attributes (${customAtCount})`
+        : `Attribute Types (${schema.attributeTypes.length})`,
       children: (
         <AttributeTypesTab
           filter={filter}
           schemaDn={schemaDn}
           readOnly={isReadOnly}
+          customOnly={customOnly}
           onEdit={at => { setAtEditing(at); setAtEditorOpen(true); }}
           onNew={() => { setAtEditing(null); setAtEditorOpen(true); }}
         />
@@ -411,6 +459,14 @@ const SchemaBrowser: React.FC = () => {
           allowClear
           style={{ maxWidth: 380 }}
         />
+        <Tooltip title={`Vis kun custom/ikke-standard definisjoner (${customOcCount} OC, ${customAtCount} attrs)`}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, whiteSpace: "nowrap" }}>
+            <Switch size="small" checked={customOnly} onChange={setCustomOnly} />
+            <span style={{ color: customOnly ? "#d4380d" : "#888" }}>
+              Custom only
+            </span>
+          </span>
+        </Tooltip>
         <div style={{ flex: 1 }} />
         <Text type="secondary" style={{ fontSize: 11 }}>Schema DN:</Text>
         <Input
