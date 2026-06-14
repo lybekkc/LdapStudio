@@ -8,6 +8,7 @@ import {
   SearchOutlined, ApartmentOutlined, FilterOutlined,
   FileTextOutlined, QuestionCircleOutlined,
   StarOutlined, StarFilled, DeleteOutlined, StopOutlined, SettingOutlined, TagsOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import { v4 as uuidv4 } from "uuid";
 import { useAppStore } from "../store/appStore";
@@ -188,6 +189,151 @@ const FilterHelp: React.FC<{ onUse: (filter: string) => void }> = ({ onUse }) =>
   </div>
 );
 
+// ─── Generate a readable default name from filter + base ─────────────────────
+
+function generateSearchName(filter: string, base: string): string {
+  // Strip outer parens for simple filters, use filter text as hint
+  const stripped = filter.replace(/^\(+|\)+$/g, "").trim();
+  const hint = stripped.length > 0 && stripped.length <= 40 ? stripped : filter.slice(0, 40);
+  const base_short = base.split(",")[0] ?? base;
+  return `${hint} @ ${base_short}`;
+}
+
+// ─── SaveSearchModal ──────────────────────────────────────────────────────────
+
+interface SaveSearchModalProps {
+  open: boolean;
+  initial: Partial<SavedSearch> & { filter: string; baseDn: string; scope: string };
+  onSave: (s: SavedSearch) => void;
+  onCancel: () => void;
+  schema: import("../types").SchemaInfo | null;
+}
+
+const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave, onCancel, schema }) => {
+  const [form] = Form.useForm<{ name: string; baseDn: string; filter: string; scope: string }>();
+  const [dnPickerOpen, setDnPickerOpen] = useState(false);
+  const { loadChildren, serverInfo } = useAppStore();
+
+  // MiniDitTree state scoped to this modal
+  const [treeData, setTreeData] = useState<DataNode[]>([]);
+  const loadedKeys = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!open) return;
+    loadedKeys.current.clear();
+    if (serverInfo?.namingContexts?.length) {
+      setTreeData(serverInfo.namingContexts.map((nc) => ({ key: nc, title: nc, isLeaf: false })));
+    } else if (serverInfo?.activeBaseDn) {
+      setTreeData([{ key: serverInfo.activeBaseDn, title: serverInfo.activeBaseDn, isLeaf: false }]);
+    }
+    form.setFieldsValue({
+      name:   initial.name ?? "",
+      baseDn: initial.baseDn,
+      filter: initial.filter,
+      scope:  initial.scope,
+    });
+  }, [open, initial, form, serverInfo]);
+
+  const onLoadData = useCallback(async (node: DataNode) => {
+    const dn = node.key as string;
+    if (loadedKeys.current.has(dn)) return;
+    const page = await loadChildren(dn);
+    const childNodes: DataNode[] = page.nodes.map((c) => ({ key: c.dn, title: c.rdn, isLeaf: !c.hasChildren }));
+    setTreeData((prev) => updateTree(prev, dn, childNodes));
+    loadedKeys.current.add(dn);
+  }, [loadChildren]);
+
+  const handleOk = () => {
+    const vals = form.getFieldsValue();
+    const name = vals.name?.trim() || generateSearchName(vals.filter, vals.baseDn);
+    onSave({
+      id:     initial.id ?? uuidv4(),
+      name,
+      baseDn: vals.baseDn,
+      filter: vals.filter,
+      scope:  vals.scope,
+    });
+  };
+
+  const isEdit = !!initial.id;
+
+  return (
+    <Modal
+      open={open}
+      title={<span><StarOutlined style={{ marginRight: 6, color: "#faad14" }} />{isEdit ? "Rediger lagret søk" : "Lagre søk"}</span>}
+      onCancel={onCancel}
+      onOk={handleOk}
+      okText={isEdit ? "Oppdater" : "Lagre"}
+      cancelText="Avbryt"
+      width={460}
+      destroyOnHidden
+    >
+      <Form form={form} layout="vertical" size="small" onFinish={handleOk}>
+
+        <Form.Item name="name" label="Navn">
+          <Input
+            placeholder={generateSearchName(initial.filter, initial.baseDn)}
+            autoFocus
+            onPressEnter={handleOk}
+          />
+        </Form.Item>
+
+        <Form.Item name="baseDn" label="Base DN" rules={[{ required: true }]}>
+          <Input
+            style={{ fontFamily: "monospace", fontSize: 12 }}
+            addonAfter={
+              <Popover
+                open={dnPickerOpen}
+                onOpenChange={setDnPickerOpen}
+                trigger="click"
+                placement="bottomRight"
+                title={<span style={{ fontSize: 12 }}><ApartmentOutlined style={{ marginRight: 6 }} />Velg base DN</span>}
+                content={
+                  <Tree
+                    loadData={onLoadData}
+                    treeData={treeData}
+                    onSelect={(keys) => {
+                      const dn = keys[0] as string | undefined;
+                      if (dn) { form.setFieldValue("baseDn", dn); setDnPickerOpen(false); }
+                    }}
+                    style={{ minWidth: 300, maxHeight: 340, overflowY: "auto" }}
+                    blockNode
+                  />
+                }
+                overlayStyle={{ width: 340 }}
+              >
+                <ApartmentOutlined style={{ cursor: "pointer", color: "#1677ff" }} />
+              </Popover>
+            }
+          />
+        </Form.Item>
+
+        <Form.Item name="scope" label="Scope">
+          <Select
+            options={[
+              { value: "base", label: "Base" },
+              { value: "one",  label: "One level" },
+              { value: "sub",  label: "Subtree" },
+            ]}
+          />
+        </Form.Item>
+
+        <Form.Item name="filter" label="Filter" rules={[{ required: true }]}>
+          <AutoComplete
+            options={buildFilterOptions(form.getFieldValue("filter") ?? "", schema)}
+            style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
+            filterOption={false}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleOk(); } }}
+          >
+            <Input placeholder="(objectClass=*)" style={{ fontFamily: "monospace", fontSize: 12 }} />
+          </AutoComplete>
+        </Form.Item>
+
+      </Form>
+    </Modal>
+  );
+};
+
 // ─── SearchView ───────────────────────────────────────────────────────────────
 
 const SearchView: React.FC = () => {
@@ -206,10 +352,10 @@ const SearchView: React.FC = () => {
   const [pickerOpen, setPickerOpen]   = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [helpOpen, setHelpOpen]       = useState(false);
-  const [saveOpen, setSaveOpen]       = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [editingSearch, setEditingSearch] = useState<SavedSearch | null>(null);
   const [activeDn, setActiveDn]       = useState<string | null>(null);
   const selectingFromResults          = useRef(false);
-  const [saveForm]                    = Form.useForm<{ name: string }>();
 
   // Only update base DN from tree navigation — NOT when clicking a search result
   useEffect(() => {
@@ -240,14 +386,14 @@ const SearchView: React.FC = () => {
     runSearch(s.baseDn, s.filter, s.scope);
   };
 
-  const handleSaveSearch = async (values: { name: string }) => {
-    await saveSearch({ id: uuidv4(), name: values.name, baseDn: base, filter, scope });
-    setSaveOpen(false);
-    saveForm.resetFields();
+  const handleSave = async (s: SavedSearch) => {
+    await saveSearch(s);
+    setSaveModalOpen(false);
+    setEditingSearch(null);
   };
 
   const handleSelect = (dn: string) => {
-    selectingFromResults.current = true;  // prevent base DN sync
+    selectingFromResults.current = true;
     setActiveDn(dn);
     selectEntry(dn);
   };
@@ -256,6 +402,11 @@ const SearchView: React.FC = () => {
     setBase(dn);
     setPickerOpen(false);
   };
+
+  // Modal initial values: editing existing search OR new from current fields
+  const modalInitial = editingSearch
+    ? editingSearch
+    : { filter, baseDn: base, scope };
 
   if (!connected) {
     return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Not connected" style={{ marginTop: 80 }} />;
@@ -386,8 +537,13 @@ const SearchView: React.FC = () => {
                 }}
               />
             </Tooltip>
-            <Tooltip title="Lagre søket">
-              <Button size="small" icon={<StarOutlined />} onClick={() => setSaveOpen(true)} disabled={!filter} />
+            <Tooltip title="Lagre søket (⭐)">
+              <Button
+                size="small"
+                icon={<StarOutlined />}
+                onClick={() => { setEditingSearch(null); setSaveModalOpen(true); }}
+                disabled={!filter}
+              />
             </Tooltip>
           </div>
         </div>
@@ -415,10 +571,22 @@ const SearchView: React.FC = () => {
                 <StarFilled style={{ color: "#faad14", fontSize: 11, flexShrink: 0 }} />
                 <div style={{ flex: 1, overflow: "hidden" }}>
                   <Text strong style={{ fontSize: 12, display: "block" }}>{s.name}</Text>
+                  <Text type="secondary" style={{ fontSize: 10, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.baseDn} · {s.scope}
+                  </Text>
                   <Text code style={{ fontSize: 10, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {s.filter}
                   </Text>
                 </div>
+                <Tooltip title="Rediger">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={(e) => { e.stopPropagation(); setEditingSearch(s); setSaveModalOpen(true); }}
+                    style={{ flexShrink: 0 }}
+                  />
+                </Tooltip>
                 <Tooltip title="Slett">
                   <Button
                     type="text"
@@ -504,25 +672,14 @@ const SearchView: React.FC = () => {
         )}
       </Splitter.Panel>
 
-      {/* ── Save search modal ─────────────────────────────────────────────── */}
-      <Modal
-        open={saveOpen}
-        title={<span><StarOutlined style={{ marginRight: 6, color: "#faad14" }} />Lagre søk</span>}
-        onCancel={() => { setSaveOpen(false); saveForm.resetFields(); }}
-        onOk={() => saveForm.submit()}
-        okText="Lagre"
-        cancelText="Avbryt"
-        width={400}
-      >
-        <Form form={saveForm} layout="vertical" onFinish={handleSaveSearch}>
-          <Form.Item name="name" label="Navn" rules={[{ required: true, message: "Skriv inn et navn" }]}>
-            <Input placeholder="f.eks. Alle personer" autoFocus />
-          </Form.Item>
-          <Form.Item label="Filter (skrivebeskyttet)">
-            <Input.TextArea value={`${filter}\nBase: ${base} (${scope})`} readOnly rows={3} style={{ fontFamily: "monospace", fontSize: 11 }} />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {/* ── Save / Edit search modal ──────────────────────────────────────── */}
+      <SaveSearchModal
+        open={saveModalOpen}
+        initial={modalInitial}
+        schema={schema}
+        onSave={handleSave}
+        onCancel={() => { setSaveModalOpen(false); setEditingSearch(null); }}
+      />
 
     </Splitter>
   );
