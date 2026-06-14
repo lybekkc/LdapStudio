@@ -9,6 +9,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.8.0] - 2026-06-14
+
+### Added
+- **Custom schema detection** — object classes and attribute types that don't belong to known standards (X.500, inetOrgPerson, OpenLDAP, etc.) are marked with an orange `custom` badge in the Schema Browser
+- **"Custom only" toggle** in the Schema Browser — filter the list to show only your own OC/AT definitions
+- **Enterprise OID arc (PEN) support** — set your IANA Private Enterprise Number base OID in the connection profile; `custom` badges and the "Custom only" filter then apply exclusively to OIDs under your own arc instead of all third-party OIDs
+- **PEN banner** in the Schema Browser shows the active enterprise arc when one is configured
+- **Auto-suggest next OID** — a 💡 button next to the OID field in the ObjectClass and AttributeType editors automatically proposes the next available OID under your enterprise arc
+
+---
+
 ## [0.7.0] - 2026-06-14
 
 ### Added
