@@ -348,6 +348,7 @@ const SearchView: React.FC = () => {
     savedSearches, saveSearch, removeSavedSearch, setPageSize,
     showOcSearch, setShowOcSearch,
     searchSplitSize, setSearchSplitSize,
+    activeProfile,
   } = useAppStore();
 
   const [base, setBase]               = useState(selectedDn ?? serverInfo?.activeBaseDn ?? "");
@@ -496,7 +497,9 @@ const SearchView: React.FC = () => {
                 <FilterBuilder
                   schema={schema}
                   currentFilter={filter}
-                  onInsert={(f) => { setFilter(f); setBuilderOpen(false); }}
+                  enterpriseBaseOid={activeProfile?.enterpriseBaseOid ?? null}
+                  onUpdate={(f) => setFilter(f)}
+                  onCommit={(f) => { setFilter(f); setBuilderOpen(false); }}
                 />
               }
               overlayStyle={{ width: 420 }}
