@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   AutoComplete,
   Button,
+  DatePicker,
   Select,
   Space,
   Tag,
@@ -9,9 +10,33 @@ import {
   Divider,
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import type { SchemaInfo } from "../types";
 
 const { Text } = Typography;
+
+// LDAP Generalized Time syntax OID
+const GENERALIZED_TIME_OID = "1.3.6.1.4.1.1466.115.121.1.24";
+
+/** Heuristic: is this attribute likely a generalized time value? */
+function isDateAttr(attrName: string, schema: SchemaInfo | null): boolean {
+  const name = attrName.toLowerCase();
+  if (name.includes("timestamp") || name.includes("time") || name.includes("date") || name.includes("expir")) {
+    return true;
+  }
+  if (schema) {
+    const def = schema.attributeTypes.find(
+      (a) => a.name.toLowerCase() === name
+    );
+    if (def?.syntax === GENERALIZED_TIME_OID) return true;
+  }
+  return false;
+}
+
+/** Format a dayjs value as LDAP Generalized Time: 20260101120000Z */
+function toGeneralizedTime(d: dayjs.Dayjs): string {
+  return d.format("YYYYMMDDHHmmss") + "Z";
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +154,8 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
   const [op, setOp]   = useState("=");
   const [val, setVal] = useState("");
 
+  const showDatePicker = op !== "present" && op !== "substring" && isDateAttr(attr, schema);
+
   const attrOptions = (schema?.attributeTypes ?? [])
     .filter((at) => !attr || at.name.toLowerCase().includes(attr.toLowerCase()))
     .slice(0, 25)
@@ -158,7 +185,6 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
     if (!next || next === "(objectClass=*)") {
       onInsert(clause);
     } else {
-      // Wrap existing + new in (&...)
       onInsert(`(&${next}${clause})`);
     }
     setAttr(""); setVal("");
@@ -203,17 +229,28 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
               { value: "not",       label: "NOT" },
             ]}
           />
-          <AutoComplete
-            value={val}
-            onChange={setVal}
-            options={valOptions}
-            placeholder="Value"
-            style={{ width: "32%" }}
-            disabled={op === "present"}
-            filterOption={(inp, opt) =>
-              (opt?.value as string)?.toLowerCase().startsWith(inp.toLowerCase())
-            }
-          />
+          {showDatePicker ? (
+            <DatePicker
+              showTime={{ format: "HH:mm:ss" }}
+              format="YYYY-MM-DD HH:mm:ss"
+              placeholder="Pick date & time"
+              size="small"
+              style={{ width: "32%" }}
+              onChange={(d) => setVal(d ? toGeneralizedTime(d) : "")}
+            />
+          ) : (
+            <AutoComplete
+              value={val}
+              onChange={setVal}
+              options={valOptions}
+              placeholder="Value"
+              style={{ width: "32%" }}
+              disabled={op === "present"}
+              filterOption={(inp, opt) =>
+                (opt?.value as string)?.toLowerCase().startsWith(inp.toLowerCase())
+              }
+            />
+          )}
         </Space.Compact>
 
         {/* Preview */}
