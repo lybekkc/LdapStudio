@@ -3,6 +3,7 @@ import { Store } from "@tauri-apps/plugin-store";
 import type {
   AppTab, ConnectionProfile, LdapEntry, LdapMod,
   NewEntry, SavedSearch, SchemaInfo, ServerInfo, UndoRecord, ClipboardEntry,
+  SearchLogEntry, ModLogEntry, LogTab,
 } from "../types";
 import * as api from "../api/commands";
 
@@ -179,6 +180,7 @@ interface AppStore {
   searchHasMore: boolean;
   searchPage: number;
   searchTotal: number;
+  searchError: string | null;
   pageSize: number;
   // last search params (needed for next-page calls)
   _lastBase:   string;
@@ -260,6 +262,20 @@ interface AppStore {
   clearEntryClipboard: () => void;
   /** Switch the active base DN without reconnecting */
   setActiveBaseDn: (dn: string) => Promise<void>;
+
+  // ─── Log panel ──────────────────────────────────────────────────────────────
+  searchLogs: SearchLogEntry[];
+  modLogs: ModLogEntry[];
+  logPanelOpen: boolean;
+  logPanelHeight: number;
+  activeLogTab: LogTab;
+  addSearchLog: (entry: SearchLogEntry) => void;
+  addModLog: (entry: ModLogEntry) => void;
+  clearSearchLogs: () => void;
+  clearModLogs: () => void;
+  setLogPanelOpen: (open: boolean) => void;
+  setLogPanelHeight: (h: number) => void;
+  setActiveLogTab: (tab: LogTab) => void;
 }
 
 // ─── Store implementation ─────────────────────────────────────────────────────
@@ -290,6 +306,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   searchHasMore: false,
   searchPage: 0,
   searchTotal: 0,
+  searchError: null,
   pageSize: 100,
   showOcBrowser: true,
   showOcSearch: true,
@@ -307,6 +324,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   undoHistory: [],
   historyDrawerOpen: false,
   clipboardEntry: null,
+
+  searchLogs: [],
+  modLogs: [],
+  logPanelOpen: false,
+  logPanelHeight: 180,
+  activeLogTab: "search",
 
   // ─── Init: load profiles from disk ────────────────────────────────────────
   initApp: async () => {
@@ -516,9 +539,25 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
     }
 
-    await api.modifyEntry(dn, mods);
-    const entry = await api.getEntry(dn);
-    set({ selectedEntry: entry });
+    try {
+      await api.modifyEntry(dn, mods);
+      const entry = await api.getEntry(dn);
+      set({ selectedEntry: entry });
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "modify", dn,
+        details: mods.map(m => `${m.op.toLowerCase()}: ${m.attr}`).join("\n"),
+        success: true,
+      });
+    } catch (e) {
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "modify", dn,
+        details: mods.map(m => `${m.op.toLowerCase()}: ${m.attr}`).join("\n"),
+        success: false, error: String(e),
+      });
+      throw e;
+    }
   },
 
   deleteEntry: async (dn) => {
@@ -547,27 +586,52 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await get().pushUndo(record);
     }
 
-    await api.deleteEntry(dn);
-    set({ selectedDn: null, selectedEntry: null, lastDeletedDn: dn });
+    try {
+      await api.deleteEntry(dn);
+      set({ selectedDn: null, selectedEntry: null, lastDeletedDn: dn });
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "delete", dn, details: "changetype: delete", success: true,
+      });
+    } catch (e) {
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "delete", dn, details: "changetype: delete", success: false, error: String(e),
+      });
+      throw e;
+    }
   },
 
   addEntry: async (entry) => {
-    await api.addEntry(entry);
-
-    const profileId = get().activeProfile?.id;
-    if (profileId) {
-      const record: UndoRecord = {
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        dn: entry.dn,
-        description: `Created entry`,
-        operationType: "add",
-      };
-      await get().pushUndo(record);
+    try {
+      await api.addEntry(entry);
+      const profileId = get().activeProfile?.id;
+      if (profileId) {
+        const record: UndoRecord = {
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          dn: entry.dn,
+          description: `Created entry`,
+          operationType: "add",
+        };
+        await get().pushUndo(record);
+      }
+      const loaded = await api.getEntry(entry.dn);
+      set({ selectedDn: entry.dn, selectedEntry: loaded });
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "add", dn: entry.dn,
+        details: `changetype: add\nobjectClass: ${entry.attributes.find(a => a.attr === "objectClass")?.values.join(", ") ?? ""}`,
+        success: true,
+      });
+    } catch (e) {
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "add", dn: entry.dn,
+        details: "changetype: add", success: false, error: String(e),
+      });
+      throw e;
     }
-
-    const loaded = await api.getEntry(entry.dn);
-    set({ selectedDn: entry.dn, selectedEntry: loaded });
   },
 
   renameEntry: async (dn, newRdn, deleteOldRdn, newSuperior) => {
@@ -577,7 +641,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const newParent = newSuperior ?? oldParent ?? "";
     const newDn = newParent ? `${newRdn},${newParent}` : newRdn;
 
-    await api.renameEntry(dn, newRdn, deleteOldRdn, newSuperior);
+    try {
+      await api.renameEntry(dn, newRdn, deleteOldRdn, newSuperior);
+    } catch (e) {
+      get().addModLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        operation: "rename", dn,
+        details: `changetype: moddn\nnewrdn: ${newRdn}${newSuperior ? `\nnewsuperior: ${newSuperior}` : ""}`,
+        success: false, error: String(e),
+      });
+      throw e;
+    }
 
     const profileId = get().activeProfile?.id;
     if (profileId) {
@@ -599,6 +673,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       await get().pushUndo(record);
     }
 
+    get().addModLog({
+      id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+      operation: "rename", dn,
+      details: `changetype: moddn\nnewrdn: ${newRdn}${newSuperior ? `\nnewsuperior: ${newSuperior}` : ""}`,
+      success: true,
+    });
+
     // Update selected DN to new location
     set({ selectedDn: newDn });
     const reloaded = await api.getEntry(newDn).catch(() => null);
@@ -609,16 +690,29 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   // ─── Search ───────────────────────────────────────────────────────────────
   runSearch: async (base, filter, scope) => {
+    const t0 = Date.now();
     set({ searchLoading: true, searchResults: [], searchHasMore: false,
-          searchPage: 0, searchTotal: 0,
+          searchPage: 0, searchTotal: 0, searchError: null,
           _lastBase: base, _lastFilter: filter, _lastScope: scope });
     try {
       const r = await api.searchPage(base, filter, scope, get().pageSize);
       set({ searchResults: r.entries, searchHasMore: r.hasMore,
             searchPage: r.page, searchTotal: r.total });
+      get().addSearchLog({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        baseDn: base, filter, scope,
+        resultCount: r.total, durationMs: Date.now() - t0,
+      });
     } catch (e) {
       if (isConnectionError(e)) get().triggerReconnect();
-      else if (!String(e).includes("avbrutt")) throw e;
+      else if (!String(e).includes("avbrutt")) {
+        const err = String(e);
+        set({ searchError: err });
+        get().addSearchLog({
+          id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+          baseDn: base, filter, scope, durationMs: Date.now() - t0, error: err,
+        });
+      }
     } finally {
       set({ searchLoading: false });
     }
@@ -894,5 +988,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const s = get();
     await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: dir });
   },
+
+  // ─── Log panel ────────────────────────────────────────────────────────────
+  addSearchLog: (entry) => set((s) => ({ searchLogs: [...s.searchLogs, entry] })),
+  addModLog:    (entry) => set((s) => ({ modLogs:    [...s.modLogs,    entry] })),
+  clearSearchLogs: () => set({ searchLogs: [] }),
+  clearModLogs:    () => set({ modLogs:    [] }),
+  setLogPanelOpen:   (open) => set({ logPanelOpen: open }),
+  setLogPanelHeight: (h)    => set({ logPanelHeight: h }),
+  setActiveLogTab:   (tab)  => set({ activeLogTab: tab }),
 }));
 

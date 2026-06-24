@@ -204,6 +204,31 @@ export interface ClipboardEntry {
   timestamp: string;
 }
 
+// ─── Log panel ────────────────────────────────────────────────────────────────
+
+export type LogTab = "search" | "mod";
+
+export interface SearchLogEntry {
+  id: string;
+  timestamp: string;
+  baseDn: string;
+  filter: string;
+  scope: string;
+  resultCount?: number;
+  durationMs?: number;
+  error?: string;
+}
+
+export interface ModLogEntry {
+  id: string;
+  timestamp: string;
+  operation: "add" | "modify" | "delete" | "rename";
+  dn: string;
+  details: string;
+  success: boolean;
+  error?: string;
+}
+
 // ─── Undo history ─────────────────────────────────────────────────────────────
 
 export type UndoOperationType = "modify" | "delete" | "add" | "rename" | "schema";

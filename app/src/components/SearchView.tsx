@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AutoComplete, Input, Select, Button, Tag, Typography,
-  Empty, Spin, Tooltip, Popover, Tree, Badge, Modal, Form, Splitter, Switch, InputNumber,
+  Empty, Spin, Tooltip, Popover, Tree, Badge, Modal, Form, Splitter, Switch, InputNumber, Alert,
 } from "antd";
 import type { TreeDataNode as DataNode } from "antd";
 import {
@@ -343,7 +343,7 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
 const SearchView: React.FC = () => {
   const {
     serverInfo, runSearch, loadNextPage, cancelSearch,
-    searchResults, searchLoading, searchHasMore, searchPage, searchTotal, pageSize,
+    searchResults, searchLoading, searchHasMore, searchPage, searchTotal, searchError, pageSize,
     selectEntry, connected, selectedDn, schema,
     savedSearches, saveSearch, removeSavedSearch, setPageSize,
     showOcSearch, setShowOcSearch,
@@ -645,6 +645,14 @@ const SearchView: React.FC = () => {
             <div style={{ display: "flex", justifyContent: "center", padding: 32 }}>
               <Spin tip="Searching…" />
             </div>
+          ) : searchError ? (
+            <Alert
+              type="error"
+              showIcon
+              message="Search error"
+              description={searchError}
+              style={{ margin: 12 }}
+            />
           ) : searchResults.length === 0 ? (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -656,9 +664,9 @@ const SearchView: React.FC = () => {
               {/* Paging summary bar */}
               <div style={{ padding: "4px 12px", background: "#f5f5f5", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Badge count={searchResults.length} color="#1677ff" size="small" />
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    vist{searchPage > 1 ? ` — side ${searchPage}` : ""}
+                    <span style={{ fontWeight: 600, color: "#1677ff" }}>{searchResults.length}</span>
+                    {" "}vist{searchPage > 1 ? ` — side ${searchPage}` : ""}
                     {searchTotal > searchResults.length ? ` / ${searchTotal} totalt` : ""}
                   </Text>
                 </span>

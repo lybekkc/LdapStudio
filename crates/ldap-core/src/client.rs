@@ -12,6 +12,13 @@ use crate::types::*;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/// Well-known operational attributes returned by `+` in LDAP searches.
+const OPERATIONAL_ATTRS: &[&str] = &[
+    "createTimestamp", "modifyTimestamp", "creatorsName", "modifiersName",
+    "entryUUID", "entryDN", "subschemaSubentry", "hasSubordinates",
+    "numSubordinates", "structuralObjectClass",
+];
+
 fn build_ldap_url(profile: &ConnectionProfile) -> String {
     match profile.connection_type {
         ConnectionType::Ldaps => format!("ldaps://{}:{}", profile.host, profile.port),
@@ -293,17 +300,11 @@ impl LdapClient {
             .ok_or_else(|| LdapError::Operation(format!("Entry not found: {dn}")))?;
         let entry = SearchEntry::construct(raw);
 
-        let operational_attrs = [
-            "createTimestamp", "modifyTimestamp", "creatorsName", "modifiersName",
-            "entryUUID", "entryDN", "subschemaSubentry", "hasSubordinates",
-            "numSubordinates", "structuralObjectClass",
-        ];
-
         let mut attributes: Vec<LdapAttribute> = entry
             .attrs
             .into_iter()
             .map(|(name, values)| {
-                let is_operational = operational_attrs.contains(&name.as_str())
+                let is_operational = OPERATIONAL_ATTRS.contains(&name.as_str())
                     || name.starts_with("ds-") || name.starts_with("pwdPolicy");
                 LdapAttribute { name, values, is_operational }
             })
@@ -505,6 +506,11 @@ impl LdapClient {
             _      => Scope::Subtree,
         };
 
+        tracing::debug!(
+            "search_page: base={:?} scope={:?} filter={:?}",
+            base, scope, filter
+        );
+
         let pr_ctrl = RawControl::from(PagedResults {
             size:   page_size,
             cookie: self.page_cookie.clone(),
@@ -513,7 +519,7 @@ impl LdapClient {
         // ldap3 search returns ldap3::SearchResult (tuple struct)
         let sr = self.ldap
             .with_controls(vec![pr_ctrl])
-            .search(base, ldap_scope, filter, vec!["*"])
+            .search(base, ldap_scope, filter, vec!["*", "+"])
             .await?;
 
         // sr is ldap3::SearchResult(Vec<ResultEntry>, LdapResult)
@@ -536,10 +542,10 @@ impl LdapClient {
             .into_iter()
             .map(|raw| {
                 let entry = SearchEntry::construct(raw);
-                let attributes = entry.attrs.into_iter().map(|(name, values)| LdapAttribute {
-                    is_operational: name.starts_with("ds-"),
-                    name,
-                    values,
+                let attributes = entry.attrs.into_iter().map(|(name, values)| {
+                    let is_operational = OPERATIONAL_ATTRS.contains(&name.as_str())
+                        || name.starts_with("ds-") || name.starts_with("pwdPolicy");
+                    LdapAttribute { name, values, is_operational }
                 }).collect();
                 LdapEntry { dn: entry.dn, attributes }
             })

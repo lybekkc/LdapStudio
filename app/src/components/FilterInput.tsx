@@ -21,6 +21,7 @@ function parseCurrentClause(value: string): {
   attrPart: string;
   eqFound: boolean;
   valuePart: string;
+  hasOpenClause: boolean;
 } {
   // Find the last '(' without a matching ')'
   let depth = 0;
@@ -32,20 +33,21 @@ function parseCurrentClause(value: string): {
       depth--;
     }
   }
-  if (clauseStart === -1) return { beforeClause: value, attrPart: "", eqFound: false, valuePart: "" };
+  if (clauseStart === -1) return { beforeClause: value, attrPart: "", eqFound: false, valuePart: "", hasOpenClause: false };
 
   const clause = value.slice(clauseStart + 1);
   const beforeClause = value.slice(0, clauseStart + 1);
   const eqIdx = clause.indexOf("=");
 
   if (eqIdx === -1) {
-    return { beforeClause, attrPart: clause, eqFound: false, valuePart: "" };
+    return { beforeClause, attrPart: clause, eqFound: false, valuePart: "", hasOpenClause: true };
   }
   return {
     beforeClause,
     attrPart: clause.slice(0, eqIdx),
     eqFound: true,
     valuePart: clause.slice(eqIdx + 1),
+    hasOpenClause: true,
   };
 }
 
@@ -56,9 +58,12 @@ export function buildFilterOptions(
 ): { value: string; label: React.ReactNode }[] {
   if (!schema) return [];
 
-  const { beforeClause, attrPart, eqFound, valuePart } = parseCurrentClause(value);
+  const { beforeClause, attrPart, eqFound, valuePart, hasOpenClause } = parseCurrentClause(value);
 
   if (!eqFound) {
+    // Only suggest when inside an open, unmatched clause
+    if (!hasOpenClause) return [];
+
     // Suggest attribute names
     const partial = attrPart.toLowerCase();
     return schema.attributeTypes
