@@ -9,6 +9,7 @@ import {
   PlusOutlined, BulbOutlined, BookOutlined, LockOutlined, SwapOutlined,
   ScissorOutlined,
 } from "@ant-design/icons";
+import dayjs from "dayjs";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
 import { collectOcAttrs } from "../utils/schema";
@@ -28,11 +29,28 @@ function isDistinguishedName(value: string): boolean {
   return value.includes(",") && (value.includes("=") || value.startsWith("dc="));
 }
 
-function renderValue(value: string): React.ReactNode {
-  if (isDistinguishedName(value)) {
-    return <Text code style={{ fontSize: 12 }}>{value}</Text>;
-  }
-  return <span style={{ wordBreak: "break-all" }}>{value}</span>;
+const GENERALIZED_TIME_RE = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.\d+)?Z?$/;
+
+function parseGeneralizedTime(value: string): dayjs.Dayjs | null {
+  const m = value.match(GENERALIZED_TIME_RE);
+  if (!m) return null;
+  return dayjs(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`);
+}
+
+function renderValueWithDate(value: string, fmt: string): React.ReactNode {
+  const parsed = parseGeneralizedTime(value);
+  const base = isDistinguishedName(value)
+    ? <Text code style={{ fontSize: 12 }}>{value}</Text>
+    : <span style={{ wordBreak: "break-all" }}>{value}</span>;
+  if (!parsed) return base;
+  return (
+    <span>
+      {value}
+      <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+        ({parsed.format(fmt)})
+      </Text>
+    </span>
+  );
 }
 
 const OC_COLORS: Record<string, string> = {
@@ -108,7 +126,7 @@ function computeOcMods(original: string[], edited: string[]): LdapMod[] {
 const EntryDetails: React.FC = () => {
   const { selectedDn, selectedEntry, entryLoading, schema,
           modifyEntry, deleteEntry, activeProfile, writeUnlocked,
-          copyEntryToClipboard, clipboardEntry } = useAppStore();
+          copyEntryToClipboard, clipboardEntry, dateFormat } = useAppStore();
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
   const [showOperational, setShowOperational] = useState(false);
   const [ocExpanded, setOcExpanded]           = useState(true);
@@ -363,8 +381,21 @@ const EntryDetails: React.FC = () => {
       width: 200,
       sorter: (a: LdapAttribute, b: LdapAttribute) => a.name.localeCompare(b.name),
       render: (name: string, record: LdapAttribute) => (
-        <Space>
+        <Space size={4}>
           <Text strong style={{ fontFamily: "monospace", fontSize: 12 }}>{name}</Text>
+          <Tooltip title="Copy attribute name">
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined style={{ fontSize: 11, color: "#999" }} />}
+              onClick={async (e) => {
+                e.stopPropagation();
+                await navigator.clipboard.writeText(name);
+                message.success("Copied!", 1);
+              }}
+              style={{ padding: 0, width: 18, height: 18 }}
+            />
+          </Tooltip>
           {record.isOperational && <Tag color="orange" style={{ fontSize: 10 }}>op</Tag>}
         </Space>
       ),
@@ -376,7 +407,7 @@ const EntryDetails: React.FC = () => {
         <div>
           {record.values.map((v, i) => (
             <Paragraph key={i} style={{ margin: "2px 0", fontSize: 12 }} copyable={{ text: v }}>
-              {renderValue(v)}
+              {renderValueWithDate(v, dateFormat)}
             </Paragraph>
           ))}
         </div>
@@ -497,17 +528,20 @@ const EntryDetails: React.FC = () => {
                     >
                       {oc}
                       {isStructural && <span style={{ marginLeft: 3, fontSize: 9, opacity: 0.7 }}>S</span>}
-                      {isAdded && <span style={{ marginLeft: 3, fontSize: 9, opacity: 0.8 }}>+ny</span>}
+                      {isAdded && <span style={{ marginLeft: 3, fontSize: 9, opacity: 0.8 }}>+new</span>}
                     </Tag>
                   </Tooltip>
                 ) : (
-                  <Tooltip key={oc} title={`Kopier "${oc}"`}>
+                  <Tooltip key={oc} title={`Copy "${oc}"`}>
                     <Tag
                       color={ocColor(oc)}
                       style={{ fontSize: 12, padding: "2px 8px", cursor: "pointer" }}
-                      onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(oc); message.success(`Kopiert: ${oc}`, 1); }}
+                      onClick={async (e) => { e.stopPropagation(); await navigator.clipboard.writeText(oc); message.success("Copied!", 1); }}
                     >
-                      {oc}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        <span>{oc}</span>
+                        <CopyOutlined style={{ fontSize: 10, color: "rgba(0, 0, 0, 0.45)" }} />
+                      </span>
                     </Tag>
                   </Tooltip>
                 );
@@ -534,7 +568,7 @@ const EntryDetails: React.FC = () => {
               >
                 <Input
                   size="small"
-                  placeholder="+ Legg til objectClass…"
+                  placeholder="+ Add objectClass…"
                   prefix={<PlusOutlined style={{ color: "#52c41a", fontSize: 11 }} />}
                   onPressEnter={() => {
                     const v = ocAddInput.trim();
@@ -554,7 +588,7 @@ const EntryDetails: React.FC = () => {
       {!isEditing && (
         <div style={{ padding: "4px 16px", background: "#fafafa", borderBottom: "1px solid #f0f0f0", flexShrink: 0, display: "flex", alignItems: "center", gap: 6 }}>
           <Switch size="small" checked={showOperational} onChange={setShowOperational} />
-          <Text type="secondary" style={{ fontSize: 11 }}>Vis operasjonelle attributter</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>Show operational attributes</Text>
         </div>
       )}
 
@@ -593,7 +627,7 @@ const EntryDetails: React.FC = () => {
                   )}
                   <Text strong style={{ fontFamily: "monospace", fontSize: 12 }}>{attrName}</Text>
                 </Space>
-                <Tooltip title={`Fjern attributt "${attrName}"`}>
+                <Tooltip title={`Remove attribute "${attrName}"`}>
                   <Button type="text" size="small" danger icon={<DeleteOutlined />}
                     style={{ fontSize: 11 }} onClick={() => removeAttr(attrName)} />
                 </Tooltip>
@@ -613,7 +647,7 @@ const EntryDetails: React.FC = () => {
                             value={val}
                             onChange={e => updateValue(attrName, idx, e.target.value)}
                             style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
-                            placeholder="Skriv inn nytt passord (klartekst)"
+                            placeholder="Enter new password (plain text)"
                           />
                         ) : (
                           <Input
@@ -623,7 +657,7 @@ const EntryDetails: React.FC = () => {
                             style={{ flex: 1, fontFamily: "monospace", fontSize: 12 }}
                           />
                         )}
-                        <Tooltip title="Fjern verdi">
+                        <Tooltip title="Remove value">
                           <Button type="text" size="small" danger icon={<CloseOutlined />}
                             onClick={() => removeValue(attrName, idx)} />
                         </Tooltip>
@@ -633,12 +667,12 @@ const EntryDetails: React.FC = () => {
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
                           {hashed ? (
                             <Tag color="green" style={{ fontSize: 10 }}>
-                              ✓ Allerede hashet {scheme ? `{${scheme}}` : ""}– sendes uendret
+                              ✓ Already hashed {scheme ? `{${scheme}}` : ""} — sent unchanged
                             </Tag>
                           ) : (
                             <>
                               <Tag color="orange" style={{ fontSize: 10 }}>
-                                Vil bli hashet ved lagring:
+                                Will be hashed on save:
                               </Tag>
                               <Select
                                 size="small"
@@ -657,7 +691,7 @@ const EntryDetails: React.FC = () => {
                 <Button type="dashed" size="small" icon={<PlusOutlined />}
                   style={{ fontSize: 11, marginTop: 2 }}
                   onClick={() => addValue(attrName)}>
-                  Legg til verdi
+                  Add value
                 </Button>
               </div>
             </div>

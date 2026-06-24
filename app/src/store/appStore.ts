@@ -46,6 +46,7 @@ let _store: Store | null = null;
 const STORE_FILE   = "profiles.json";
 const PROFILES_KEY = "profiles";
 const SETTINGS_KEY = "settings";
+const DEFAULT_DATE_FORMAT = "DD.MM.YYYY HH:mm:ss";
 
 // ─── Per-profile undo history helpers ────────────────────────────────────────
 
@@ -89,6 +90,7 @@ interface PersistedSettings {
   searchSplitSize: number;
   lastExportDir: string;
   lastImportDir: string;
+  dateFormat: string;
 }
 
 async function getStore(): Promise<Store> {
@@ -139,6 +141,7 @@ async function loadPersistedSettings(): Promise<PersistedSettings> {
     searchSplitSize:  s.searchSplitSize  ?? 360,
     lastExportDir:    s.lastExportDir    ?? "",
     lastImportDir:    s.lastImportDir    ?? "",
+    dateFormat:       s.dateFormat       ?? DEFAULT_DATE_FORMAT,
   };
 }
 
@@ -242,8 +245,10 @@ interface AppStore {
   setPageSize: (size: number) => Promise<void>;
   showOcBrowser: boolean;
   showOcSearch: boolean;
+  dateFormat: string;
   setShowOcBrowser: (v: boolean) => Promise<void>;
   setShowOcSearch: (v: boolean) => Promise<void>;
+  setDateFormat: (fmt: string) => void;
   browserSplitSize: number;
   searchSplitSize: number;
   setBrowserSplitSize: (size: number) => Promise<void>;
@@ -310,6 +315,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   pageSize: 100,
   showOcBrowser: true,
   showOcSearch: true,
+  dateFormat: DEFAULT_DATE_FORMAT,
   browserSplitSize: 300,
   searchSplitSize: 360,
   lastExportDir: "",
@@ -342,6 +348,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             pageSize: settings.pageSize,
             showOcBrowser: settings.showOcBrowser,
             showOcSearch: settings.showOcSearch,
+            dateFormat: settings.dateFormat,
             browserSplitSize: settings.browserSplitSize,
             searchSplitSize: settings.searchSplitSize,
             lastExportDir: settings.lastExportDir,
@@ -950,43 +957,49 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set({ pageSize: size });
     await api.setPageSize(size);
     const s = get();
-    await persistSettings({ pageSize: size, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: size, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setShowOcBrowser: async (v) => {
     set({ showOcBrowser: v });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: v, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: v, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setShowOcSearch: async (v) => {
     set({ showOcSearch: v });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: v, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: v, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setBrowserSplitSize: async (size) => {
     set({ browserSplitSize: size });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: size, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: size, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setSearchSplitSize: async (size) => {
     set({ searchSplitSize: size });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: size, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: size, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setLastExportDir: async (dir) => {
     set({ lastExportDir: dir });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: dir, lastImportDir: s.lastImportDir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: dir, lastImportDir: s.lastImportDir, dateFormat: s.dateFormat });
   },
 
   setLastImportDir: async (dir) => {
     set({ lastImportDir: dir });
     const s = get();
-    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: dir });
+    await persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: dir, dateFormat: s.dateFormat });
+  },
+
+  setDateFormat: (fmt) => {
+    set({ dateFormat: fmt });
+    const s = get();
+    void persistSettings({ pageSize: s.pageSize, showOcBrowser: s.showOcBrowser, showOcSearch: s.showOcSearch, browserSplitSize: s.browserSplitSize, searchSplitSize: s.searchSplitSize, lastExportDir: s.lastExportDir, lastImportDir: s.lastImportDir, dateFormat: fmt });
   },
 
   // ─── Log panel ────────────────────────────────────────────────────────────

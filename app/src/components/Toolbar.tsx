@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Space, Tag, Tooltip, Typography, Popover, Drawer, Form, InputNumber, Switch, Divider, Modal, Badge } from "antd";
+import { Button, Space, Tag, Tooltip, Typography, Popover, Drawer, Form, InputNumber, Switch, Divider, Modal, Badge, Select } from "antd";
 import {
   ApiOutlined, DisconnectOutlined, DatabaseOutlined,
   ApartmentOutlined, SearchOutlined, InfoCircleOutlined,
@@ -39,6 +39,7 @@ const Toolbar: React.FC = () => {
     pageSize, setPageSize,
     showOcBrowser, setShowOcBrowser,
     showOcSearch, setShowOcSearch,
+    dateFormat, setDateFormat,
     activeProfile,
     writeUnlocked,
     setWriteUnlocked,
@@ -395,6 +396,26 @@ const Toolbar: React.FC = () => {
             </div>
             <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
               Shows object class tags in the search results list
+            </Text>
+          </Form.Item>
+
+          <Divider orientation="left" style={{ fontSize: 12, color: "#888" }}>Date & Time</Divider>
+
+          <Form.Item label="Date display format">
+            <Select
+              value={dateFormat}
+              onChange={setDateFormat}
+              style={{ width: "100%" }}
+              options={[
+                { value: "DD.MM.YYYY HH:mm:ss", label: "DD.MM.YYYY HH:mm:ss (Norwegian)" },
+                { value: "YYYY-MM-DD HH:mm:ss", label: "YYYY-MM-DD HH:mm:ss (ISO)" },
+                { value: "MM/DD/YYYY HH:mm:ss", label: "MM/DD/YYYY HH:mm:ss (US)" },
+                { value: "DD.MM.YYYY", label: "DD.MM.YYYY (date only)" },
+                { value: "YYYY-MM-DD", label: "YYYY-MM-DD (date only, ISO)" },
+              ]}
+            />
+            <Text type="secondary" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+              Shown next to raw LDAP timestamps in entry details
             </Text>
           </Form.Item>
 

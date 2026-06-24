@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Form,
@@ -285,7 +285,20 @@ const ConnectionDialog: React.FC = () => {
   } = useAppStore();
 
   const [editingProfile, setEditingProfile] = useState<ConnectionProfile | undefined>(undefined);
-  // Profiles are loaded at startup via initApp(); no need to reload on dialog open.
+  const [activeTab, setActiveTab] = useState<string>("new");
+  const [tabInitialized, setTabInitialized] = useState(false);
+
+  // Switch to profiles tab once profiles are loaded (async from storage)
+  useEffect(() => {
+    if (!showConnectionDialog) {
+      setTabInitialized(false);
+      return;
+    }
+    if (!tabInitialized && profiles.length > 0) {
+      setActiveTab("profiles");
+      setTabInitialized(true);
+    }
+  }, [showConnectionDialog, profiles.length, tabInitialized]);
 
   const profileColumns = [
     {
@@ -423,7 +436,7 @@ const ConnectionDialog: React.FC = () => {
           style={{ marginBottom: 16 }}
         />
       )}
-      <Tabs items={tabItems} />
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </Modal>
   );
 };
