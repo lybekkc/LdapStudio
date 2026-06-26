@@ -199,7 +199,7 @@ function getApplyParams(item: SchemaDiffItem, direction: "toTarget" | "toSource"
 // ─── Main component ──────────────────────────────────────────────────────────
 
 const CompareSchemaView: React.FC = () => {
-  const { schema, activeProfile, profiles, saveProfile, modifySchemaEntry, addModLog } = useAppStore();
+  const { schema, activeProfile, profiles, saveProfile, modifySchemaEntry, addModLog, pushUndo } = useAppStore();
 
   const [step, setStep] = useState<Step>("connect");
   const [remoteProfile, setRemoteProfile] = useState<ConnectionProfile | null>(null);
@@ -313,6 +313,15 @@ const CompareSchemaView: React.FC = () => {
           try {
             if (direction === "toTarget" && remoteProfile && remoteSchema) {
               await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
+              // Push a non-undoable record to Operation History
+              await pushUndo({
+                id: crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                operationType: "remote_schema",
+                dn: remoteSchema.schemaDn,
+                description,
+                remoteServer: targetName,
+              });
             } else if (direction === "toSource" && schema) {
               await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
             }

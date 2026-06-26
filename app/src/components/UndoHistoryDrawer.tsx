@@ -6,7 +6,7 @@ import {
 import {
   UndoOutlined, DeleteOutlined, ClearOutlined,
   EditOutlined, MinusCircleOutlined, PlusCircleOutlined,
-  WarningOutlined, SwapOutlined, DatabaseOutlined,
+  WarningOutlined, SwapOutlined, DatabaseOutlined, CloudSyncOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { message } from "antd";
@@ -20,11 +20,12 @@ interface Props {
 }
 
 const OP_CONFIG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
-  modify: { color: "orange", icon: <EditOutlined />,        label: "Modified"  },
-  delete: { color: "red",    icon: <MinusCircleOutlined />, label: "Deleted"   },
-  add:    { color: "green",  icon: <PlusCircleOutlined />,  label: "Created"   },
-  rename: { color: "purple", icon: <SwapOutlined />,        label: "Renamed"   },
-  schema: { color: "cyan",   icon: <DatabaseOutlined />,    label: "Schema"    },
+  modify:        { color: "orange", icon: <EditOutlined />,        label: "Modified"       },
+  delete:        { color: "red",    icon: <MinusCircleOutlined />, label: "Deleted"        },
+  add:           { color: "green",  icon: <PlusCircleOutlined />,  label: "Created"        },
+  rename:        { color: "purple", icon: <SwapOutlined />,        label: "Renamed"        },
+  schema:        { color: "cyan",   icon: <DatabaseOutlined />,    label: "Schema"         },
+  remote_schema: { color: "purple", icon: <CloudSyncOutlined />,   label: "Remote Schema"  },
 };
 
 function formatTimestamp(iso: string): string {
@@ -121,7 +122,8 @@ const UndoHistoryDrawer: React.FC<Props> = ({ open, onClose }) => {
           renderItem={(record: UndoRecord) => {
             const cfg = OP_CONFIG[record.operationType] ?? OP_CONFIG.modify;
             const isUndoing = undoing === record.id;
-            const canUndo = record.operationType !== "delete" || !!record.snapshot;
+            const isRemote = record.operationType === "remote_schema";
+            const canUndo = !isRemote && (record.operationType !== "delete" || !!record.snapshot);
 
             return (
               <List.Item
@@ -129,12 +131,15 @@ const UndoHistoryDrawer: React.FC<Props> = ({ open, onClose }) => {
                   padding: "8px 4px",
                   borderBottom: "1px solid #f0f0f0",
                   alignItems: "flex-start",
+                  background: isRemote ? "#f9f0ff" : undefined,
                 }}
                 actions={[
                   <Tooltip
                     key="undo"
                     title={
-                      !canUndo
+                      isRemote
+                        ? "Remote changes cannot be undone from here"
+                        : !canUndo
                         ? "Cannot undo — entry snapshot not available"
                         : isUndoing
                         ? "Undoing…"
@@ -143,12 +148,13 @@ const UndoHistoryDrawer: React.FC<Props> = ({ open, onClose }) => {
                   >
                     <Button
                       size="small"
-                      icon={<UndoOutlined />}
+                      icon={isRemote ? <CloudSyncOutlined /> : <UndoOutlined />}
                       loading={isUndoing}
                       disabled={!canUndo || undoing !== null}
-                      onClick={() => handleUndo(record)}
+                      onClick={() => !isRemote && handleUndo(record)}
+                      style={isRemote ? { color: "#722ed1", borderColor: "#d3adf7" } : undefined}
                     >
-                      Undo
+                      {isRemote ? "Logged" : "Undo"}
                     </Button>
                   </Tooltip>,
                   <Tooltip key="remove" title="Remove from history (does not undo)">
@@ -168,6 +174,11 @@ const UndoHistoryDrawer: React.FC<Props> = ({ open, onClose }) => {
                       <Tag color={cfg.color} icon={cfg.icon} style={{ margin: 0 }}>
                         {cfg.label}
                       </Tag>
+                      {record.remoteServer && (
+                        <Tag color="purple" style={{ margin: 0, fontSize: 10 }}>
+                          ⇢ {record.remoteServer}
+                        </Tag>
+                      )}
                       <Text style={{ fontFamily: "monospace", fontSize: 11 }} title={record.dn}>
                         {shortDn(record.dn)}
                       </Text>
