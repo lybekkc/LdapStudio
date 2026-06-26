@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import {
   Button, Select, Space, Table, Tag, Typography, Alert,
-  Radio, Divider, Empty, Tooltip, Modal, message,
+  Radio, Divider, Empty, Tooltip, Modal,
 } from "antd";
 import {
   ApiOutlined, DiffOutlined, DownloadOutlined, ReloadOutlined,
-  ArrowRightOutlined, ArrowLeftOutlined, WarningOutlined,
+  ArrowRightOutlined, ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/commands";
@@ -214,6 +214,7 @@ const CompareSchemaView: React.FC = () => {
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [applying, setApplying] = useState(false);
   const [applyResult, setApplyResult] = useState<{ ok: number; fail: number; direction: string; errors: string[] } | null>(null);
+  const [pendingApply, setPendingApply] = useState<{ direction: "toTarget" | "toSource"; items: SchemaDiffItem[] } | null>(null);
 
   const customOidPrefix = activeProfile?.enterpriseBaseOid ?? null;
   const hasCustom = !!customOidPrefix;
@@ -240,146 +241,6 @@ const CompareSchemaView: React.FC = () => {
     if (p) await handleConnect(p);
   };
 
-  // ── Apply changes ─────────────────────────────────────────────────────────
-
-  const handleApply = (direction: "toTarget" | "toSource") => {
-    const items = allDiff.filter((i) => selectedKeys.includes(`${i.kind}-${i.name}`) && i.status !== "identical");
-    if (items.length === 0) return;
-
-    const targetServer = direction === "toTarget" ? targetName : sourceName;
-    const isTargetReadOnly = direction === "toTarget"
-      ? (remoteProfile?.readOnly ?? false)
-      : (activeProfile?.readOnly ?? false);
-
-    Modal.confirm({
-      title: `Apply ${items.length} change${items.length > 1 ? "s" : ""} to ${targetServer}`,
-      icon: isTargetReadOnly ? <WarningOutlined style={{ color: "#ff4d4f" }} /> : undefined,
-      content: (
-        <div>
-          {isTargetReadOnly && (
-            <Alert
-              type="error"
-              showIcon
-              message={`${targetServer} is marked read-only`}
-              description="This profile has write operations disabled. Applying changes may fail or be blocked."
-              style={{ marginBottom: 12 }}
-            />
-          )}
-          {direction === "toTarget" && (
-            <Alert
-              type="warning"
-              showIcon
-              message="Cannot be undone"
-              description={`Changes applied to ${targetName} are not tracked in the undo history. Make sure you have a backup.`}
-              style={{ marginBottom: 12 }}
-            />
-          )}
-          {direction === "toSource" && (
-            <Alert
-              type="info"
-              showIcon
-              message="Supports undo"
-              description={`Changes to ${sourceName} will be added to the undo history and can be reverted.`}
-              style={{ marginBottom: 12 }}
-            />
-          )}
-          <Text type="secondary" style={{ fontSize: 12 }}>The following will be applied to <strong>{targetServer}</strong>:</Text>
-          <div style={{ maxHeight: 200, overflow: "auto", marginTop: 8 }}>
-            {items.map((i) => (
-              <div key={`${i.kind}-${i.name}`} style={{ fontSize: 12, fontFamily: "monospace", padding: "2px 0" }}>
-                <Tag color={i.status === "added" ? "green" : i.status === "removed" ? "red" : "orange"} style={{ fontSize: 10 }}>
-                  {i.status}
-                </Tag>
-                {i.kind === "objectClass" ? "OC" : "AT"}: {i.name}
-              </div>
-            ))}
-          </div>
-        </div>
-      ),
-      okText: isTargetReadOnly ? "Apply anyway" : "Apply",
-      okType: isTargetReadOnly ? "danger" : "primary",
-      cancelText: "Cancel",
-      width: 520,
-      onOk: async () => {
-        setApplying(true);
-        let ok = 0;
-        const errors: string[] = [];
-        for (const item of items) {
-          const { attrName, oldRaw, newRaw } = getApplyParams(item, direction);
-          const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
-          const typeLabel = item.kind === "objectClass" ? "ObjectClass" : "AttributeType";
-          const description = `${opLabel} ${typeLabel}: ${item.name} (via Compare)`;
-          const schemaDn = direction === "toTarget" ? (remoteSchema?.schemaDn ?? "") : (schema?.schemaDn ?? "");
-          const logOp = !oldRaw ? "add" : !newRaw ? "delete" : "modify";
-          try {
-            if (direction === "toTarget" && remoteProfile && remoteSchema) {
-              await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
-              await pushUndo({
-                id: crypto.randomUUID(),
-                timestamp: new Date().toISOString(),
-                operationType: "remote_schema",
-                dn: remoteSchema.schemaDn,
-                description,
-                remoteServer: targetName,
-              });
-            } else if (direction === "toSource" && schema) {
-              await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
-            } else {
-              errors.push(`${item.name}: no schema connection available`);
-              continue;
-            }
-            addModLog({
-              id: crypto.randomUUID(),
-              timestamp: new Date().toISOString(),
-              operation: "schema",
-              dn: schemaDn,
-              details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
-              success: true,
-              server: direction === "toTarget" ? targetName : undefined,
-            });
-            ok++;
-          } catch (e) {
-            const msg = `${item.name}: ${String(e)}`;
-            errors.push(msg);
-            addModLog({
-              id: crypto.randomUUID(),
-              timestamp: new Date().toISOString(),
-              operation: "schema",
-              dn: schemaDn,
-              details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
-              success: false,
-              error: String(e),
-              server: direction === "toTarget" ? targetName : undefined,
-            });
-          }
-        }
-
-        // Reload schemas so diff reflects the changes
-        try {
-          if (direction === "toSource") {
-            const updated = await api.getSchema();
-            useAppStore.setState({ schema: updated });
-          } else if (direction === "toTarget" && remoteProfile) {
-            const updated = await api.fetchRemoteSchema(remoteProfile);
-            setRemoteSchema(updated);
-          }
-        } catch (e) {
-          console.error("Schema reload after apply failed:", e);
-        }
-
-        setApplying(false);
-        setSelectedKeys([]);
-        setApplyResult({ ok, fail: errors.length, direction: targetServer, errors });
-
-        if (errors.length > 0) {
-          message.error({ content: `${errors.length} change(s) failed — see Modification Logs`, duration: 6 });
-        } else if (ok > 0) {
-          message.success(`Applied ${ok} change${ok > 1 ? "s" : ""} to ${targetServer}`);
-        }
-      },
-    });
-  };
-
   // ── Diff ──────────────────────────────────────────────────────────────────
 
   const sourceName = activeProfile?.name ?? "Source";
@@ -392,6 +253,86 @@ const CompareSchemaView: React.FC = () => {
       ...diffAttributeTypes(schema, remoteSchema, customOidPrefix, scope, sourceName, targetName),
     ];
   }, [schema, remoteSchema, scope, customOidPrefix, sourceName, targetName]);
+
+  // ── Apply changes ─────────────────────────────────────────────────────────
+
+  const handleApply = (direction: "toTarget" | "toSource") => {
+    const items = allDiff.filter((i) => selectedKeys.includes(`${i.kind}-${i.name}`) && i.status !== "identical");
+    if (items.length === 0) return;
+    setPendingApply({ direction, items });
+  };
+
+  const executeApply = async () => {
+    if (!pendingApply) return;
+    const { direction, items } = pendingApply;
+    const targetServer = direction === "toTarget" ? targetName : sourceName;
+    setPendingApply(null);
+    setApplying(true);
+    let ok = 0;
+    const errors: string[] = [];
+    for (const item of items) {
+      const { attrName, oldRaw, newRaw } = getApplyParams(item, direction);
+      const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
+      const typeLabel = item.kind === "objectClass" ? "ObjectClass" : "AttributeType";
+      const description = `${opLabel} ${typeLabel}: ${item.name} (via Compare)`;
+      const schemaDn = direction === "toTarget" ? (remoteSchema?.schemaDn ?? "") : (schema?.schemaDn ?? "");
+      const logOp = !oldRaw ? "add" : !newRaw ? "delete" : "modify";
+      try {
+        if (direction === "toTarget" && remoteProfile && remoteSchema) {
+          await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
+          await pushUndo({
+            id: crypto.randomUUID(),
+            timestamp: new Date().toISOString(),
+            operationType: "remote_schema",
+            dn: remoteSchema.schemaDn,
+            description,
+            remoteServer: targetName,
+          });
+        } else if (direction === "toSource" && schema) {
+          await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
+        } else {
+          errors.push(`${item.name}: no schema connection available`);
+          continue;
+        }
+        addModLog({
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          operation: "schema",
+          dn: schemaDn,
+          details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
+          success: true,
+          server: direction === "toTarget" ? targetName : undefined,
+        });
+        ok++;
+      } catch (e) {
+        errors.push(`${item.name}: ${String(e)}`);
+        addModLog({
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          operation: "schema",
+          dn: schemaDn,
+          details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
+          success: false,
+          error: String(e),
+          server: direction === "toTarget" ? targetName : undefined,
+        });
+      }
+    }
+    try {
+      if (direction === "toSource") {
+        const updated = await api.getSchema();
+        useAppStore.setState({ schema: updated });
+      } else if (direction === "toTarget" && remoteProfile) {
+        const updated = await api.fetchRemoteSchema(remoteProfile);
+        setRemoteSchema(updated);
+      }
+    } catch (e) {
+      console.error("Schema reload after apply failed:", e);
+    }
+    setApplying(false);
+    setSelectedKeys([]);
+    setApplyResult({ ok, fail: errors.length, direction: targetServer, errors });
+  };
 
   const visibleDiff = allDiff.filter((item) => {
     if (!statusFilter.includes(item.status)) return false;
@@ -473,6 +414,7 @@ const CompareSchemaView: React.FC = () => {
   }
 
   return (
+    <>
     <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* ── Header ── */}
@@ -714,6 +656,53 @@ const CompareSchemaView: React.FC = () => {
       )}
 
     </div>
+
+    {/* ── Confirmation modal (state-based) ── */}
+    {pendingApply && (() => {
+      const { direction, items } = pendingApply;
+      const targetServer = direction === "toTarget" ? targetName : sourceName;
+      const isReadOnly = direction === "toTarget" ? (remoteProfile?.readOnly ?? false) : (activeProfile?.readOnly ?? false);
+      return (
+        <Modal
+          open
+          title={`Apply ${items.length} change${items.length > 1 ? "s" : ""} to ${targetServer}`}
+          okText={isReadOnly ? "Apply anyway" : "Apply"}
+          okButtonProps={{ danger: isReadOnly }}
+          cancelText="Cancel"
+          onOk={executeApply}
+          onCancel={() => setPendingApply(null)}
+          width={520}
+        >
+          {isReadOnly && (
+            <Alert type="error" showIcon message={`${targetServer} is marked read-only`}
+              description="This profile has write operations disabled. Applying changes may fail or be blocked."
+              style={{ marginBottom: 12 }} />
+          )}
+          {direction === "toTarget" && (
+            <Alert type="warning" showIcon message="Cannot be undone"
+              description={`Changes applied to ${targetName} are not tracked in the undo history.`}
+              style={{ marginBottom: 12 }} />
+          )}
+          {direction === "toSource" && (
+            <Alert type="info" showIcon message="Supports undo"
+              description={`Changes to ${sourceName} will be added to the undo history and can be reverted.`}
+              style={{ marginBottom: 12 }} />
+          )}
+          <Text type="secondary" style={{ fontSize: 12 }}>The following will be applied to <strong>{targetServer}</strong>:</Text>
+          <div style={{ maxHeight: 200, overflow: "auto", marginTop: 8 }}>
+            {items.map((i) => (
+              <div key={`${i.kind}-${i.name}`} style={{ fontSize: 12, fontFamily: "monospace", padding: "2px 0" }}>
+                <Tag color={i.status === "added" ? "green" : i.status === "removed" ? "red" : "orange"} style={{ fontSize: 10 }}>
+                  {i.status}
+                </Tag>
+                {i.kind === "objectClass" ? "OC" : "AT"}: {i.name}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      );
+    })()}
+    </>
   );
 };
 
