@@ -199,7 +199,7 @@ function getApplyParams(item: SchemaDiffItem, direction: "toTarget" | "toSource"
 // ─── Main component ──────────────────────────────────────────────────────────
 
 const CompareSchemaView: React.FC = () => {
-  const { schema, activeProfile, profiles, saveProfile } = useAppStore();
+  const { schema, activeProfile, profiles, saveProfile, modifySchemaEntry } = useAppStore();
 
   const [step, setStep] = useState<Step>("connect");
   const [remoteProfile, setRemoteProfile] = useState<ConnectionProfile | null>(null);
@@ -264,6 +264,24 @@ const CompareSchemaView: React.FC = () => {
               style={{ marginBottom: 12 }}
             />
           )}
+          {direction === "toTarget" && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Cannot be undone"
+              description={`Changes applied to ${targetName} are not tracked in the undo history. Make sure you have a backup.`}
+              style={{ marginBottom: 12 }}
+            />
+          )}
+          {direction === "toSource" && (
+            <Alert
+              type="info"
+              showIcon
+              message="Supports undo"
+              description={`Changes to ${sourceName} will be added to the undo history and can be reverted.`}
+              style={{ marginBottom: 12 }}
+            />
+          )}
           <Text type="secondary" style={{ fontSize: 12 }}>The following will be applied to <strong>{targetServer}</strong>:</Text>
           <div style={{ maxHeight: 200, overflow: "auto", marginTop: 8 }}>
             {items.map((i) => (
@@ -286,11 +304,14 @@ const CompareSchemaView: React.FC = () => {
         let ok = 0; let fail = 0;
         for (const item of items) {
           const { attrName, oldRaw, newRaw } = getApplyParams(item, direction);
+          const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
+          const typeLabel = item.kind === "objectClass" ? "ObjectClass" : "AttributeType";
+          const description = `${opLabel} ${typeLabel}: ${item.name} (via Compare)`;
           try {
             if (direction === "toTarget" && remoteProfile && remoteSchema) {
               await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
             } else if (direction === "toSource" && schema) {
-              await api.modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw);
+              await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
             }
             ok++;
           } catch {
