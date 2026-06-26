@@ -171,6 +171,16 @@ pub async fn get_schema(state: State<'_, AppState>) -> Result<SchemaInfo, String
     g.as_mut().ok_or("Not connected")?.get_schema().await.map_err(err_str)
 }
 
+/// Connect to a remote server, fetch its schema, and immediately disconnect.
+/// Used by the Compare Schema feature — does not affect the active connection.
+#[tauri::command]
+pub async fn fetch_remote_schema(profile: ConnectionProfile) -> Result<SchemaInfo, String> {
+    let mut client = LdapClient::connect(&profile).await.map_err(err_str)?;
+    let schema = client.get_schema().await.map_err(err_str)?;
+    let _ = client.disconnect().await;
+    Ok(schema)
+}
+
 // ─── Write operations ─────────────────────────────────────────────────────────
 
 #[tauri::command]

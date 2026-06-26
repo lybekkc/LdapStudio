@@ -22,7 +22,7 @@ pub fn run() {
             connect, disconnect, ping, set_active_base_dn,
             list_children, list_children_more, get_entry, set_page_size,
             search_page, search_next_page, cancel_search,
-            get_schema,
+            get_schema, fetch_remote_schema,
             modify_entry, delete_entry, add_entry, analyze_siblings, rename_entry,
             save_profile, list_profiles, delete_profile,
             modify_schema_entry,

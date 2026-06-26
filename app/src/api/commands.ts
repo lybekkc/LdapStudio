@@ -78,3 +78,6 @@ export const importLdif = (
   continueOnError: boolean,
 ) => invoke<LdifImportResult>("import_ldif", { content, dryRun, continueOnError });
 
+
+export const fetchRemoteSchema = (profile: ConnectionProfile) =>
+  invoke<SchemaInfo>("fetch_remote_schema", { profile });

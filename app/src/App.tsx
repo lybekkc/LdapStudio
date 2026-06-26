@@ -6,6 +6,7 @@ import DitTree from "./components/DitTree";
 import EntryDetails from "./components/EntryDetails";
 import SchemaBrowser from "./components/SchemaBrowser";
 import SearchView from "./components/SearchView";
+import CompareSchemaView from "./components/CompareSchemaView";
 import LogPanel from "./components/LogPanel";
 import { useAppStore } from "./store/appStore";
 import { useKeyboardShortcuts } from "./utils/useKeyboardShortcuts";
@@ -22,8 +23,6 @@ const App: React.FC = () => {
 
       <Layout style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
-        {/* All three tabs stay mounted — toggled with CSS display to preserve state */}
-
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
           <Content
@@ -38,6 +37,13 @@ const App: React.FC = () => {
                      flex: 1, overflow: "hidden", background: "#fff", flexDirection: "column" }}
           >
             <SearchView />
+          </Content>
+
+          <Content
+            style={{ display: activeTab === "compare" ? "flex" : "none",
+                     flex: 1, overflow: "hidden", background: "#fff", flexDirection: "column" }}
+          >
+            <CompareSchemaView />
           </Content>
 
           {/* Browser: resizable left/right split */}

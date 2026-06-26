@@ -6,7 +6,7 @@ import {
   SettingOutlined, TagsOutlined, LockOutlined, UnlockOutlined,
   LoadingOutlined, WifiOutlined, CloseCircleOutlined,
   DownloadOutlined, UploadOutlined, TableOutlined, HistoryOutlined,
-  QuestionCircleOutlined, CopyOutlined,
+  QuestionCircleOutlined, CopyOutlined, DiffOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
 import { MAX_RECONNECT_ATTEMPTS } from "../store/appStore";
@@ -113,6 +113,7 @@ const Toolbar: React.FC = () => {
     { key: "browser", icon: <ApartmentOutlined />, label: "Browser" },
     { key: "search",  icon: <SearchOutlined />,    label: "Search" },
     { key: "schema",  icon: <DatabaseOutlined />,  label: "Schema" },
+    { key: "compare", icon: <DiffOutlined />,       label: "Compare" },
   ];
 
   const serverInfoPopover = serverInfo && (

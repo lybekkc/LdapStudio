@@ -86,14 +86,14 @@ function profileToForm(p: ConnectionProfile): FormValues {
 
 // ─── Connection Form (new / edit) ────────────────────────────────────────────
 
-interface ConnectionFormProps {
+export interface ConnectionFormProps {
   initialValues?: ConnectionProfile;
   onSave: (p: ConnectionProfile) => void;
   onConnect: (p: ConnectionProfile) => void;
   loading: boolean;
 }
 
-const ConnectionForm: React.FC<ConnectionFormProps> = ({ initialValues, onSave, onConnect, loading }) => {
+export const ConnectionForm: React.FC<ConnectionFormProps> = ({ initialValues, onSave, onConnect, loading }) => {
   const [form] = Form.useForm<FormValues>();
   const authKind = Form.useWatch("authKind", form);
   const connectionType = Form.useWatch("connectionType", form);

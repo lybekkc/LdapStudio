@@ -181,7 +181,7 @@ export interface LdifImportResult {
 
 // ─── App UI state ─────────────────────────────────────────────────────────────
 
-export type AppTab = "browser" | "schema" | "search";
+export type AppTab = "browser" | "schema" | "search" | "compare";
 
 // ─── Saved searches ───────────────────────────────────────────────────────────
 
@@ -258,4 +258,15 @@ export interface UndoRecord {
     oldRaw:   string;   // what to "delete" in the inverse call
     newRaw:   string;   // what to "add" in the inverse call
   };
+}
+
+// ─── Schema comparison ────────────────────────────────────────────────────────
+
+export type DiffStatus = "added" | "removed" | "changed" | "identical";
+
+export interface SchemaDiffItem {
+  kind: "objectClass" | "attributeType";
+  name: string;
+  status: DiffStatus;
+  changes: string[]; // human-readable change descriptions
 }
