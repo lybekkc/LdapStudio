@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Button, Select, Space, Table, Tag, Typography, Alert,
-  Radio, Divider, Empty, Tooltip, Modal,
+  Radio, Divider, Empty, Tooltip, Modal, message,
 } from "antd";
 import {
   ApiOutlined, DiffOutlined, DownloadOutlined, ReloadOutlined,
@@ -213,7 +213,7 @@ const CompareSchemaView: React.FC = () => {
 
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [applying, setApplying] = useState(false);
-  const [applyResult, setApplyResult] = useState<{ ok: number; fail: number; direction: string } | null>(null);
+  const [applyResult, setApplyResult] = useState<{ ok: number; fail: number; direction: string; errors: string[] } | null>(null);
 
   const customOidPrefix = activeProfile?.enterpriseBaseOid ?? null;
   const hasCustom = !!customOidPrefix;
@@ -302,7 +302,8 @@ const CompareSchemaView: React.FC = () => {
       width: 520,
       onOk: async () => {
         setApplying(true);
-        let ok = 0; let fail = 0;
+        let ok = 0;
+        const errors: string[] = [];
         for (const item of items) {
           const { attrName, oldRaw, newRaw } = getApplyParams(item, direction);
           const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
@@ -313,7 +314,6 @@ const CompareSchemaView: React.FC = () => {
           try {
             if (direction === "toTarget" && remoteProfile && remoteSchema) {
               await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
-              // Push a non-undoable record to Operation History
               await pushUndo({
                 id: crypto.randomUUID(),
                 timestamp: new Date().toISOString(),
@@ -324,6 +324,9 @@ const CompareSchemaView: React.FC = () => {
               });
             } else if (direction === "toSource" && schema) {
               await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
+            } else {
+              errors.push(`${item.name}: no schema connection available`);
+              continue;
             }
             addModLog({
               id: crypto.randomUUID(),
@@ -336,7 +339,8 @@ const CompareSchemaView: React.FC = () => {
             });
             ok++;
           } catch (e) {
-            console.error("Apply schema change failed:", e);
+            const msg = `${item.name}: ${String(e)}`;
+            errors.push(msg);
             addModLog({
               id: crypto.randomUUID(),
               timestamp: new Date().toISOString(),
@@ -347,7 +351,6 @@ const CompareSchemaView: React.FC = () => {
               error: String(e),
               server: direction === "toTarget" ? targetName : undefined,
             });
-            fail++;
           }
         }
 
@@ -366,7 +369,13 @@ const CompareSchemaView: React.FC = () => {
 
         setApplying(false);
         setSelectedKeys([]);
-        setApplyResult({ ok, fail, direction: targetServer });
+        setApplyResult({ ok, fail: errors.length, direction: targetServer, errors });
+
+        if (errors.length > 0) {
+          message.error({ content: `${errors.length} change(s) failed — see Modification Logs`, duration: 6 });
+        } else if (ok > 0) {
+          message.success(`Applied ${ok} change${ok > 1 ? "s" : ""} to ${targetServer}`);
+        }
       },
     });
   };
@@ -582,7 +591,7 @@ const CompareSchemaView: React.FC = () => {
           {/* Apply result banner */}
           {applyResult && (
             <Alert
-              type={applyResult.fail === 0 ? "success" : "warning"}
+              type={applyResult.fail === 0 ? "success" : "error"}
               showIcon
               closable
               onClose={() => setApplyResult(null)}
@@ -590,6 +599,13 @@ const CompareSchemaView: React.FC = () => {
                 applyResult.fail === 0
                   ? `✓ Applied ${applyResult.ok} change${applyResult.ok > 1 ? "s" : ""} to ${applyResult.direction} — schema reloaded`
                   : `${applyResult.ok} succeeded, ${applyResult.fail} failed applying to ${applyResult.direction}`
+              }
+              description={
+                applyResult.errors.length > 0 ? (
+                  <div style={{ fontSize: 11, fontFamily: "monospace", marginTop: 4 }}>
+                    {applyResult.errors.map((e, i) => <div key={i}>{e}</div>)}
+                  </div>
+                ) : undefined
               }
               style={{ flexShrink: 0 }}
             />
