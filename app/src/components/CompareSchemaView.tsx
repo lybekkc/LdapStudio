@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Button, Select, Space, Table, Tag, Typography, Alert,
-  Radio, Divider, Empty, Tooltip, Modal, message,
+  Radio, Divider, Empty, Tooltip, Modal,
 } from "antd";
 import {
   ApiOutlined, DiffOutlined, DownloadOutlined, ReloadOutlined,
@@ -213,6 +213,7 @@ const CompareSchemaView: React.FC = () => {
 
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [applying, setApplying] = useState(false);
+  const [applyResult, setApplyResult] = useState<{ ok: number; fail: number; direction: string } | null>(null);
 
   const customOidPrefix = activeProfile?.enterpriseBaseOid ?? null;
   const hasCustom = !!customOidPrefix;
@@ -314,17 +315,28 @@ const CompareSchemaView: React.FC = () => {
               await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
             }
             ok++;
-          } catch {
+          } catch (e) {
+            console.error("Apply schema change failed:", e);
             fail++;
           }
         }
-        setApplying(false);
-        if (fail === 0) {
-          message.success(`Applied ${ok} change${ok > 1 ? "s" : ""} successfully`);
-          setSelectedKeys([]);
-        } else {
-          message.error(`${ok} succeeded, ${fail} failed — check server logs`);
+
+        // Reload schemas so diff reflects the changes
+        try {
+          if (direction === "toSource") {
+            const updated = await api.getSchema();
+            useAppStore.setState({ schema: updated });
+          } else if (direction === "toTarget" && remoteProfile) {
+            const updated = await api.fetchRemoteSchema(remoteProfile);
+            setRemoteSchema(updated);
+          }
+        } catch (e) {
+          console.error("Schema reload after apply failed:", e);
         }
+
+        setApplying(false);
+        setSelectedKeys([]);
+        setApplyResult({ ok, fail, direction: targetServer });
       },
     });
   };
@@ -536,6 +548,22 @@ const CompareSchemaView: React.FC = () => {
       {/* ── Step: Report ── */}
       {step === "report" && (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+          {/* Apply result banner */}
+          {applyResult && (
+            <Alert
+              type={applyResult.fail === 0 ? "success" : "warning"}
+              showIcon
+              closable
+              onClose={() => setApplyResult(null)}
+              message={
+                applyResult.fail === 0
+                  ? `✓ Applied ${applyResult.ok} change${applyResult.ok > 1 ? "s" : ""} to ${applyResult.direction} — schema reloaded`
+                  : `${applyResult.ok} succeeded, ${applyResult.fail} failed applying to ${applyResult.direction}`
+              }
+              style={{ flexShrink: 0 }}
+            />
+          )}
 
           {/* Summary cards */}
           <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f0f0", background: "#fafafa", flexShrink: 0 }}>
