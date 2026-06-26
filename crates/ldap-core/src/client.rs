@@ -615,7 +615,7 @@ impl LdapClient {
             .map(|vals| vals.iter().filter_map(|s| parse_matching_rule(s)).collect())
             .unwrap_or_default();
 
-        Ok(SchemaInfo { object_classes, attribute_types, ldap_syntaxes, matching_rules })
+        Ok(SchemaInfo { schema_dn, object_classes, attribute_types, ldap_syntaxes, matching_rules })
     }
 
     async fn find_schema_dn(&mut self) -> Result<String, LdapError> {        // Ask rootDSE for subschemaSubentry

@@ -152,6 +152,7 @@ export interface MatchingRule {
 }
 
 export interface SchemaInfo {
+  schemaDn: string;
   objectClasses: ObjectClass[];
   attributeTypes: AttributeType[];
   ldapSyntaxes: LdapSyntax[];
@@ -268,5 +269,7 @@ export interface SchemaDiffItem {
   kind: "objectClass" | "attributeType";
   name: string;
   status: DiffStatus;
-  changes: string[]; // human-readable change descriptions
+  changes: string[];
+  sourceRaw: string | null; // raw LDIF value from source server
+  targetRaw: string | null; // raw LDIF value from target server // human-readable change descriptions
 }

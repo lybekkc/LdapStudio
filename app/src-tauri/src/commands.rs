@@ -73,6 +73,25 @@ pub async fn modify_schema_entry(
         .map_err(err_str)
 }
 
+/// Apply a schema change to a remote server (connect, modify, disconnect).
+/// Pass `old_raw = ""` to create, `new_raw = ""` to delete.
+#[tauri::command]
+pub async fn apply_schema_change_remote(
+    profile:    ConnectionProfile,
+    schema_dn:  String,
+    attr_name:  String,
+    old_raw:    String,
+    new_raw:    String,
+) -> Result<(), String> {
+    let mut client = LdapClient::connect(&profile).await.map_err(err_str)?;
+    client
+        .modify_schema_entry(&schema_dn, &attr_name, &old_raw, &new_raw)
+        .await
+        .map_err(err_str)?;
+    let _ = client.disconnect().await;
+    Ok(())
+}
+
 // ─── DIT browser ─────────────────────────────────────────────────────────────
 
 #[tauri::command]

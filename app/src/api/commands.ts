@@ -81,3 +81,11 @@ export const importLdif = (
 
 export const fetchRemoteSchema = (profile: ConnectionProfile) =>
   invoke<SchemaInfo>("fetch_remote_schema", { profile });
+
+export const applySchemaChangeRemote = (
+  profile: ConnectionProfile,
+  schemaDn: string,
+  attrName: string,
+  oldRaw: string,
+  newRaw: string,
+) => invoke<void>("apply_schema_change_remote", { profile, schemaDn, attrName, oldRaw, newRaw });

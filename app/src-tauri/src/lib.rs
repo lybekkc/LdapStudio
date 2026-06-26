@@ -25,7 +25,7 @@ pub fn run() {
             get_schema, fetch_remote_schema,
             modify_entry, delete_entry, add_entry, analyze_siblings, rename_entry,
             save_profile, list_profiles, delete_profile,
-            modify_schema_entry,
+            modify_schema_entry, apply_schema_change_remote,
             export_ldif, export_entries, import_ldif,
         ])
         .run(tauri::generate_context!())

@@ -216,6 +216,7 @@ pub struct LdifImportResult {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SchemaInfo {
+    pub schema_dn: String,
     pub object_classes: Vec<ObjectClass>,
     pub attribute_types: Vec<AttributeType>,
     pub ldap_syntaxes: Vec<LdapSyntax>,
