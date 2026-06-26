@@ -223,16 +223,18 @@ export interface SearchLogEntry {
 export interface ModLogEntry {
   id: string;
   timestamp: string;
-  operation: "add" | "modify" | "delete" | "rename";
+  operation: "add" | "modify" | "delete" | "rename" | "schema";
   dn: string;
   details: string;
   success: boolean;
   error?: string;
+  /** Set when the change was applied to a remote/target server (not the active connection) */
+  server?: string;
 }
 
 // ─── Undo history ─────────────────────────────────────────────────────────────
 
-export type UndoOperationType = "modify" | "delete" | "add" | "rename" | "schema";
+export type UndoOperationType = "modify" | "delete" | "add" | "rename" | "schema" | "remote_schema";
 
 export interface UndoRecord {
   id: string;
@@ -252,7 +254,8 @@ export interface UndoRecord {
     deleteOldRdn: boolean;
     newSuperior?: string;
   };
-  /** For undo of schema changes: re-apply the inverse modifySchemaEntry */
+  /** For remote (target) schema changes that cannot be undone: server name for display */
+  remoteServer?: string;
   inverseSchema?: {
     schemaDn: string;
     attrName: string;   // "objectClasses" or "attributeTypes"

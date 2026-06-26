@@ -199,7 +199,7 @@ function getApplyParams(item: SchemaDiffItem, direction: "toTarget" | "toSource"
 // ─── Main component ──────────────────────────────────────────────────────────
 
 const CompareSchemaView: React.FC = () => {
-  const { schema, activeProfile, profiles, saveProfile, modifySchemaEntry } = useAppStore();
+  const { schema, activeProfile, profiles, saveProfile, modifySchemaEntry, addModLog } = useAppStore();
 
   const [step, setStep] = useState<Step>("connect");
   const [remoteProfile, setRemoteProfile] = useState<ConnectionProfile | null>(null);
@@ -308,15 +308,36 @@ const CompareSchemaView: React.FC = () => {
           const opLabel = !oldRaw ? "Created" : !newRaw ? "Deleted" : "Modified";
           const typeLabel = item.kind === "objectClass" ? "ObjectClass" : "AttributeType";
           const description = `${opLabel} ${typeLabel}: ${item.name} (via Compare)`;
+          const schemaDn = direction === "toTarget" ? (remoteSchema?.schemaDn ?? "") : (schema?.schemaDn ?? "");
+          const logOp = !oldRaw ? "add" : !newRaw ? "delete" : "modify";
           try {
             if (direction === "toTarget" && remoteProfile && remoteSchema) {
               await api.applySchemaChangeRemote(remoteProfile, remoteSchema.schemaDn, attrName, oldRaw, newRaw);
             } else if (direction === "toSource" && schema) {
               await modifySchemaEntry(schema.schemaDn, attrName, oldRaw, newRaw, description);
             }
+            addModLog({
+              id: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              operation: "schema",
+              dn: schemaDn,
+              details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
+              success: true,
+              server: direction === "toTarget" ? targetName : undefined,
+            });
             ok++;
           } catch (e) {
             console.error("Apply schema change failed:", e);
+            addModLog({
+              id: crypto.randomUUID(),
+              timestamp: new Date().toISOString(),
+              operation: "schema",
+              dn: schemaDn,
+              details: `changetype: ${logOp}\nattribute: ${attrName}\nname: ${item.name}`,
+              success: false,
+              error: String(e),
+              server: direction === "toTarget" ? targetName : undefined,
+            });
             fail++;
           }
         }

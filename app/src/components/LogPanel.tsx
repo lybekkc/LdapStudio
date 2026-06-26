@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Button, Tooltip, Typography } from "antd";
+import { Button, Tag, Tooltip, Typography } from "antd";
 import {
   SearchOutlined, EditOutlined, DeleteOutlined,
   ClearOutlined, DownOutlined, UpOutlined,
@@ -68,6 +68,7 @@ const OP_COLOR: Record<string, string> = {
   modify: "#d46b08",
   delete: "#cf1322",
   rename: "#722ed1",
+  schema: "#0958d9",
 };
 
 const ModLogItem: React.FC<{ entry: ModLogEntry }> = ({ entry }) => {
@@ -79,8 +80,14 @@ const ModLogItem: React.FC<{ entry: ModLogEntry }> = ({ entry }) => {
       fontFamily: "monospace",
       fontSize: 11,
       lineHeight: 1.6,
+      background: entry.server ? "#fffbe6" : undefined,
     }}>
-      <div style={{ color: "#888" }}>#!DATE {fmtDate(entry.timestamp)}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: "#888" }}>#!DATE {fmtDate(entry.timestamp)}</span>
+        {entry.server && (
+          <Tag color="purple" style={{ fontSize: 10, margin: 0 }}>⇢ {entry.server}</Tag>
+        )}
+      </div>
       {entry.success ? (
         <div style={{ color: "#389e0d", fontWeight: 600 }}>#!RESULT OK</div>
       ) : (
