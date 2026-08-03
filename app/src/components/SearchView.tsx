@@ -2,17 +2,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   AutoComplete, Input, Select, Button, Tag, Typography,
   Empty, Spin, Tooltip, Popover, Tree, Modal, Form, Splitter, Switch, InputNumber, Alert,
+  Checkbox, Radio, Divider, Badge,
 } from "antd";
 import type { TreeDataNode as DataNode } from "antd";
 import {
   SearchOutlined, ApartmentOutlined, FilterOutlined,
   FileTextOutlined, QuestionCircleOutlined,
   StarOutlined, StarFilled, DeleteOutlined, StopOutlined, SettingOutlined, TagsOutlined,
-  EditOutlined,
+  EditOutlined, SlidersOutlined,
 } from "@ant-design/icons";
 import { v4 as uuidv4 } from "uuid";
 import { useAppStore } from "../store/appStore";
-import type { LdapEntry, SavedSearch } from "../types";
+import type { LdapEntry, SavedSearch, SearchRunOptions } from "../types";
 import { buildFilterOptions, FilterBuilder } from "./FilterInput";
 import EntryDetails from "./EntryDetails";
 
@@ -210,12 +211,19 @@ interface SaveSearchModalProps {
 }
 
 const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave, onCancel, schema }) => {
-  const [form] = Form.useForm<{ name: string; baseDn: string; filter: string; scope: string }>();
+  type FormVals = {
+    name: string; baseDn: string; filter: string; scope: string;
+    returningAttributes: string;
+    countLimit: number; timeLimit: number;
+    derefFindingBaseDN: boolean; derefSearch: boolean;
+    referrals: "manual" | "automatic" | "ignore";
+    manageDsaIT: boolean; subentries: boolean;
+  };
+  const [form] = Form.useForm<FormVals>();
   const [dnPickerOpen, setDnPickerOpen] = useState(false);
   const { loadChildren, serverInfo } = useAppStore();
   const [filterVal, setFilterVal] = useState(initial.filter);
 
-  // MiniDitTree state scoped to this modal
   const [treeData, setTreeData] = useState<DataNode[]>(() => {
     if (serverInfo?.namingContexts?.length) {
       return serverInfo.namingContexts.map((nc) => ({ key: nc, title: nc, isLeaf: false }));
@@ -240,15 +248,27 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
     const vals = form.getFieldsValue();
     const name = vals.name?.trim() || generateSearchName(vals.filter, vals.baseDn);
     onSave({
-      id:     initial.id ?? uuidv4(),
+      id:                  initial.id ?? uuidv4(),
       name,
-      baseDn: vals.baseDn,
-      filter: vals.filter,
-      scope:  vals.scope,
+      baseDn:              vals.baseDn,
+      filter:              vals.filter,
+      scope:               vals.scope,
+      returningAttributes: vals.returningAttributes?.trim() || undefined,
+      countLimit:          vals.countLimit > 0 ? vals.countLimit : 0,
+      timeLimit:           vals.timeLimit  > 0 ? vals.timeLimit  : 0,
+      derefFindingBaseDN:  vals.derefFindingBaseDN,
+      derefSearch:         vals.derefSearch,
+      referrals:           vals.referrals,
+      manageDsaIT:         vals.manageDsaIT,
+      subentries:          vals.subentries,
     });
   };
 
   const isEdit = !!initial.id;
+
+  const sectionTitle = (text: string) => (
+    <Divider orientation="left" style={{ fontSize: 12, margin: "12px 0 8px", color: "#555" }}>{text}</Divider>
+  );
 
   return (
     <Modal
@@ -258,7 +278,7 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
       onOk={handleOk}
       okText={isEdit ? "Update" : "Save"}
       cancelText="Cancel"
-      width={460}
+      width={540}
       destroyOnClose
     >
       <Form
@@ -267,14 +287,21 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
         size="small"
         onFinish={handleOk}
         initialValues={{
-          name:   initial.name ?? "",
-          baseDn: initial.baseDn,
-          filter: initial.filter,
-          scope:  initial.scope,
+          name:               initial.name ?? "",
+          baseDn:             initial.baseDn,
+          filter:             initial.filter,
+          scope:              initial.scope ?? "sub",
+          returningAttributes: initial.returningAttributes ?? "",
+          countLimit:         initial.countLimit ?? 0,
+          timeLimit:          initial.timeLimit  ?? 0,
+          derefFindingBaseDN: initial.derefFindingBaseDN ?? true,
+          derefSearch:        initial.derefSearch ?? true,
+          referrals:          initial.referrals ?? "manual",
+          manageDsaIT:        initial.manageDsaIT ?? false,
+          subentries:         initial.subentries  ?? false,
         }}
       >
-
-        <Form.Item name="name" label="Navn">
+        <Form.Item name="name" label="Search Name">
           <Input
             placeholder={generateSearchName(initial.filter, initial.baseDn)}
             autoFocus
@@ -282,7 +309,7 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
           />
         </Form.Item>
 
-        <Form.Item name="baseDn" label="Base DN" rules={[{ required: true }]}>
+        <Form.Item name="baseDn" label="Search Base" rules={[{ required: true }]}>
           <Input
             style={{ fontFamily: "monospace", fontSize: 12 }}
             addonAfter={
@@ -312,16 +339,6 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
           />
         </Form.Item>
 
-        <Form.Item name="scope" label="Scope">
-          <Select
-            options={[
-              { value: "base", label: "Base" },
-              { value: "one",  label: "One level" },
-              { value: "sub",  label: "Subtree" },
-            ]}
-          />
-        </Form.Item>
-
         <Form.Item name="filter" label="Filter" rules={[{ required: true }]}>
           <AutoComplete
             options={buildFilterOptions(filterVal, schema)}
@@ -333,10 +350,235 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
           />
         </Form.Item>
 
+        <Form.Item
+          name="returningAttributes"
+          label={<span>Returning Attributes <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 400 }}>(comma-separated; empty = all)</Typography.Text></span>}
+        >
+          <Input
+            style={{ fontFamily: "monospace", fontSize: 12 }}
+            placeholder="cn, mail, sn — or * for user, + for operational"
+          />
+        </Form.Item>
+
+        {sectionTitle("Scope")}
+        <Form.Item name="scope" style={{ marginBottom: 0 }}>
+          <Radio.Group>
+            <Radio value="base">Object</Radio>
+            <Radio value="one">One Level</Radio>
+            <Radio value="sub">Subtree</Radio>
+          </Radio.Group>
+        </Form.Item>
+
+        {sectionTitle("Controls")}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <Form.Item name="manageDsaIT" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>ManageDsaIT</Checkbox>
+          </Form.Item>
+          <Form.Item name="subentries" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Subentries</Checkbox>
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Limits")}
+        <div style={{ display: "flex", gap: 24 }}>
+          <Form.Item name="countLimit" label="Count Limit" style={{ marginBottom: 0, flex: 1 }}>
+            <InputNumber min={0} style={{ width: "100%" }} addonAfter={<Typography.Text type="secondary" style={{ fontSize: 11 }}>0 = unlimited</Typography.Text>} />
+          </Form.Item>
+          <Form.Item name="timeLimit" label="Time Limit (s)" style={{ marginBottom: 0, flex: 1 }}>
+            <InputNumber min={0} style={{ width: "100%" }} addonAfter={<Typography.Text type="secondary" style={{ fontSize: 11 }}>0 = unlimited</Typography.Text>} />
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Aliases Dereferencing")}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <Form.Item name="derefFindingBaseDN" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Finding Base DN</Checkbox>
+          </Form.Item>
+          <Form.Item name="derefSearch" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Search</Checkbox>
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Referrals Handling")}
+        <Form.Item name="referrals" style={{ marginBottom: 0 }}>
+          <Radio.Group>
+            <Radio value="manual">Follow Referrals manually</Radio>
+            <Radio value="automatic">Follow Referrals automatically</Radio>
+            <Radio value="ignore">Ignore Referrals</Radio>
+          </Radio.Group>
+        </Form.Item>
+
       </Form>
     </Modal>
   );
 };
+
+// ─── Advanced one-off search options ─────────────────────────────────────────
+
+export interface AdvancedState {
+  returningAttributes: string;
+  countLimit: number;
+  timeLimit: number;
+  derefFindingBaseDN: boolean;
+  derefSearch: boolean;
+  referrals: "manual" | "automatic" | "ignore";
+  manageDsaIT: boolean;
+  subentries: boolean;
+}
+
+const DEFAULT_ADVANCED: AdvancedState = {
+  returningAttributes: "",
+  countLimit: 0,
+  timeLimit: 0,
+  derefFindingBaseDN: true,
+  derefSearch: true,
+  referrals: "manual",
+  manageDsaIT: false,
+  subentries: false,
+};
+
+function isDefaultAdvanced(s: AdvancedState): boolean {
+  return (
+    !s.returningAttributes &&
+    s.countLimit === 0 &&
+    s.timeLimit  === 0 &&
+    s.derefFindingBaseDN &&
+    s.derefSearch &&
+    s.referrals === "manual" &&
+    !s.manageDsaIT &&
+    !s.subentries
+  );
+}
+
+function advancedToRunOptions(s: AdvancedState): SearchRunOptions | undefined {
+  if (isDefaultAdvanced(s)) return undefined;
+  const deref: SearchRunOptions["deref"] =
+    s.derefFindingBaseDN && s.derefSearch ? "always"
+    : s.derefFindingBaseDN               ? "base"
+    : s.derefSearch                      ? "searching"
+    :                                      "never";
+  return {
+    returningAttributes: s.returningAttributes || undefined,
+    countLimit:          s.countLimit || undefined,
+    timeLimit:           s.timeLimit  || undefined,
+    deref,
+  };
+}
+
+interface AdvancedOptionsModalProps {
+  open: boolean;
+  value: AdvancedState;
+  onOk: (s: AdvancedState) => void;
+  onCancel: () => void;
+}
+
+const AdvancedOptionsModal: React.FC<AdvancedOptionsModalProps> = ({ open, value, onOk, onCancel }) => {
+  const [form] = Form.useForm<AdvancedState>();
+
+  const sectionTitle = (text: string) => (
+    <Divider orientation="left" style={{ fontSize: 12, margin: "12px 0 8px", color: "#555" }}>{text}</Divider>
+  );
+
+  const handleReset = () => form.setFieldsValue(DEFAULT_ADVANCED);
+
+  return (
+    <Modal
+      open={open}
+      title={<span><SlidersOutlined style={{ marginRight: 6 }} />Advanced Search Options</span>}
+      onCancel={onCancel}
+      onOk={() => onOk(form.getFieldsValue())}
+      okText="Apply"
+      cancelText="Cancel"
+      width={480}
+      destroyOnClose
+      footer={(_, { OkBtn, CancelBtn }) => (
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <Button size="small" onClick={handleReset}>Reset to defaults</Button>
+          <span style={{ display: "flex", gap: 8 }}><CancelBtn /><OkBtn /></span>
+        </div>
+      )}
+    >
+      <Form form={form} layout="vertical" size="small" initialValues={value}>
+
+        <Form.Item
+          name="returningAttributes"
+          label={<span>Returning Attributes <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 400 }}>(comma-separated; empty = all)</Typography.Text></span>}
+        >
+          <Input
+            style={{ fontFamily: "monospace", fontSize: 12 }}
+            placeholder="cn, mail, sn — or * for user, + for operational"
+          />
+        </Form.Item>
+
+        {sectionTitle("Controls")}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <Form.Item name="manageDsaIT" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>ManageDsaIT</Checkbox>
+          </Form.Item>
+          <Form.Item name="subentries" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Subentries</Checkbox>
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Limits")}
+        <div style={{ display: "flex", gap: 24 }}>
+          <Form.Item name="countLimit" label="Count Limit" style={{ marginBottom: 0, flex: 1 }}>
+            <InputNumber min={0} style={{ width: "100%" }} addonAfter={<Typography.Text type="secondary" style={{ fontSize: 11 }}>0 = unlimited</Typography.Text>} />
+          </Form.Item>
+          <Form.Item name="timeLimit" label="Time Limit (s)" style={{ marginBottom: 0, flex: 1 }}>
+            <InputNumber min={0} style={{ width: "100%" }} addonAfter={<Typography.Text type="secondary" style={{ fontSize: 11 }}>0 = unlimited</Typography.Text>} />
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Aliases Dereferencing")}
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          <Form.Item name="derefFindingBaseDN" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Finding Base DN</Checkbox>
+          </Form.Item>
+          <Form.Item name="derefSearch" valuePropName="checked" style={{ marginBottom: 0 }}>
+            <Checkbox>Search</Checkbox>
+          </Form.Item>
+        </div>
+
+        {sectionTitle("Referrals Handling")}
+        <Form.Item name="referrals" style={{ marginBottom: 0 }}>
+          <Radio.Group>
+            <Radio value="manual">Follow Referrals manually</Radio>
+            <Radio value="automatic">Follow Referrals automatically</Radio>
+            <Radio value="ignore">Ignore Referrals</Radio>
+          </Radio.Group>
+        </Form.Item>
+
+      </Form>
+    </Modal>
+  );
+};
+
+// ─── Map SavedSearch advanced options to runtime SearchRunOptions ─────────────
+
+function savedSearchToRunOptions(s: SavedSearch): SearchRunOptions | undefined {
+  const base = s.derefFindingBaseDN ?? true;
+  const search = s.derefSearch ?? true;
+  const deref: SearchRunOptions["deref"] =
+    base && search ? "always"
+    : base          ? "base"
+    : search        ? "searching"
+    :                 "never";
+
+  const opts: SearchRunOptions = {
+    returningAttributes: s.returningAttributes,
+    countLimit:          s.countLimit,
+    timeLimit:           s.timeLimit,
+    deref:               deref !== "always" || (!base && !search) ? deref : "always",
+  };
+  // Return undefined if all options are default (avoids sending unnecessary params)
+  const isDefault =
+    !opts.returningAttributes &&
+    !opts.countLimit &&
+    !opts.timeLimit &&
+    opts.deref === "always";
+  return isDefault ? undefined : opts;
+}
 
 // ─── SearchView ───────────────────────────────────────────────────────────────
 
@@ -362,6 +604,8 @@ const SearchView: React.FC = () => {
   const [activeDn, setActiveDn]       = useState<string | null>(null);
   const [pageSizePopover, setPageSizePopover] = useState(false);
   const [pageSizeDraft,   setPageSizeDraft]   = useState<number>(pageSize);
+  const [advancedOpen,    setAdvancedOpen]    = useState(false);
+  const [advancedOpts,    setAdvancedOpts]    = useState<AdvancedState>(DEFAULT_ADVANCED);
   const selectingFromResults          = useRef(false);
 
   // Only update base DN from tree navigation — NOT when clicking a search result
@@ -382,7 +626,7 @@ const SearchView: React.FC = () => {
   const handleSearch = () => {
     if (!base || !filter) return;
     setActiveDn(null);
-    runSearch(base, filter, scope);
+    runSearch(base, filter, scope, advancedToRunOptions(advancedOpts));
   };
 
   const handleApplySaved = (s: SavedSearch) => {
@@ -390,7 +634,8 @@ const SearchView: React.FC = () => {
     setFilter(s.filter);
     setScope(s.scope);
     setActiveDn(null);
-    runSearch(s.baseDn, s.filter, s.scope);
+    const opts = savedSearchToRunOptions(s);
+    runSearch(s.baseDn, s.filter, s.scope, opts);
   };
 
   const handleSave = async (s: SavedSearch) => {
@@ -585,6 +830,17 @@ const SearchView: React.FC = () => {
                 disabled={!filter}
               />
             </Tooltip>
+            <Tooltip title={isDefaultAdvanced(advancedOpts) ? "Advanced search options" : "Advanced options active"}>
+              <Badge dot={!isDefaultAdvanced(advancedOpts)} offset={[-2, 2]}>
+                <Button
+                  size="small"
+                  icon={<SlidersOutlined />}
+                  onClick={() => setAdvancedOpen(true)}
+                  type={isDefaultAdvanced(advancedOpts) ? "default" : "primary"}
+                  ghost={!isDefaultAdvanced(advancedOpts)}
+                />
+              </Badge>
+            </Tooltip>
           </div>
         </div>
 
@@ -729,6 +985,14 @@ const SearchView: React.FC = () => {
         schema={schema}
         onSave={handleSave}
         onCancel={() => { setSaveModalOpen(false); setEditingSearch(null); }}
+      />
+
+      {/* ── Advanced one-off search options modal ─────────────────────────── */}
+      <AdvancedOptionsModal
+        open={advancedOpen}
+        value={advancedOpts}
+        onOk={(s) => { setAdvancedOpts(s); setAdvancedOpen(false); }}
+        onCancel={() => setAdvancedOpen(false)}
       />
     </>
   );

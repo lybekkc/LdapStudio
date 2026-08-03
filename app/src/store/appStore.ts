@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Store } from "@tauri-apps/plugin-store";
 import type {
   AppTab, ConnectionProfile, LdapEntry, LdapMod,
-  NewEntry, SavedSearch, SchemaInfo, ServerInfo, UndoRecord, ClipboardEntry,
+  NewEntry, SavedSearch, SchemaInfo, SearchRunOptions, ServerInfo, UndoRecord, ClipboardEntry,
   SearchLogEntry, ModLogEntry, LogTab,
 } from "../types";
 import * as api from "../api/commands";
@@ -189,6 +189,7 @@ interface AppStore {
   _lastBase:   string;
   _lastFilter: string;
   _lastScope:  string;
+  _lastOpts:   SearchRunOptions | undefined;
 
   // ─── Schema ──────────────────────────────────────────────────────────────
   schema: SchemaInfo | null;
@@ -211,7 +212,7 @@ interface AppStore {
   addEntry: (entry: NewEntry) => Promise<void>;
   renameEntry: (dn: string, newRdn: string, deleteOldRdn: boolean, newSuperior?: string) => Promise<string>;
 
-  runSearch: (base: string, filter: string, scope: string) => Promise<void>;
+  runSearch: (base: string, filter: string, scope: string, opts?: SearchRunOptions) => Promise<void>;
   loadNextPage: () => Promise<void>;
   cancelSearch: () => Promise<void>;
   loadSchema: () => Promise<void>;
@@ -320,7 +321,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   searchSplitSize: 360,
   lastExportDir: "",
   lastImportDir: "",
-  _lastBase: "", _lastFilter: "", _lastScope: "sub",
+  _lastBase: "", _lastFilter: "", _lastScope: "sub", _lastOpts: undefined,
 
   schema: null,
   schemaLoading: false,
@@ -696,13 +697,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   // ─── Search ───────────────────────────────────────────────────────────────
-  runSearch: async (base, filter, scope) => {
+  runSearch: async (base, filter, scope, opts?) => {
     const t0 = Date.now();
     set({ searchLoading: true, searchResults: [], searchHasMore: false,
           searchPage: 0, searchTotal: 0, searchError: null,
-          _lastBase: base, _lastFilter: filter, _lastScope: scope });
+          _lastBase: base, _lastFilter: filter, _lastScope: scope, _lastOpts: opts });
     try {
-      const r = await api.searchPage(base, filter, scope, get().pageSize);
+      const r = await api.searchPage(base, filter, scope, get().pageSize, opts);
       set({ searchResults: r.entries, searchHasMore: r.hasMore,
             searchPage: r.page, searchTotal: r.total });
       get().addSearchLog({
@@ -726,12 +727,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
 
   loadNextPage: async () => {
-    const { _lastBase: base, _lastFilter: filter, _lastScope: scope,
+    const { _lastBase: base, _lastFilter: filter, _lastScope: scope, _lastOpts: opts,
             searchResults, pageSize } = get();
     if (!base) return;
     set({ searchLoading: true });
     try {
-      const r = await api.searchNextPage(base, filter, scope, pageSize);
+      const r = await api.searchNextPage(base, filter, scope, pageSize, opts);
       set({
         searchResults: [...searchResults, ...r.entries],
         searchHasMore: r.hasMore,

@@ -133,17 +133,26 @@ pub async fn get_entry(dn: String, state: State<'_, AppState>) -> Result<LdapEnt
 
 // ─── Paged search with cancellation ──────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 async fn run_search(
     state: &AppState,
     base: &str, filter: &str, scope: &str,
     page_size: i32, reset: bool,
+    attrs: Option<Vec<String>>,
+    size_limit: Option<i32>,
+    time_limit: Option<i32>,
+    deref: Option<String>,
     cancel: CancellationToken,
 ) -> Result<SearchPage, String> {
     tokio::select! {
         result = async {
             let mut g = state.client.lock().await;
             let client = g.as_mut().ok_or_else(|| "Not connected".to_string())?;
-            client.search_page(base, filter, scope, page_size, reset).await.map_err(err_str)
+            client.search_page(
+                base, filter, scope, page_size, reset,
+                attrs, size_limit, time_limit,
+                deref.as_deref(),
+            ).await.map_err(err_str)
         } => {
             *state.search_cancel.lock().await = None;
             result
@@ -158,22 +167,32 @@ async fn run_search(
 pub async fn search_page(
     base: String, filter: String, scope: String,
     page_size: Option<i32>,
+    attrs: Option<Vec<String>>,
+    size_limit: Option<i32>,
+    time_limit: Option<i32>,
+    deref: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SearchPage, String> {
     let cancel = CancellationToken::new();
     *state.search_cancel.lock().await = Some(cancel.clone());
-    run_search(&state, &base, &filter, &scope, page_size.unwrap_or(100), true, cancel).await
+    run_search(&state, &base, &filter, &scope, page_size.unwrap_or(100), true,
+               attrs, size_limit, time_limit, deref, cancel).await
 }
 
 #[tauri::command]
 pub async fn search_next_page(
     base: String, filter: String, scope: String,
     page_size: Option<i32>,
+    attrs: Option<Vec<String>>,
+    size_limit: Option<i32>,
+    time_limit: Option<i32>,
+    deref: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<SearchPage, String> {
     let cancel = CancellationToken::new();
     *state.search_cancel.lock().await = Some(cancel.clone());
-    run_search(&state, &base, &filter, &scope, page_size.unwrap_or(100), false, cancel).await
+    run_search(&state, &base, &filter, &scope, page_size.unwrap_or(100), false,
+               attrs, size_limit, time_limit, deref, cancel).await
 }
 
 #[tauri::command]

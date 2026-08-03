@@ -192,6 +192,23 @@ export interface SavedSearch {
   baseDn: string;
   filter: string;
   scope: string;
+  // Advanced options
+  returningAttributes?: string;        // comma-separated list; empty = all user+operational
+  countLimit?: number;                 // 0 = unlimited
+  timeLimit?: number;                  // 0 = no limit (seconds)
+  derefFindingBaseDN?: boolean;        // dereference aliases when finding base DN
+  derefSearch?: boolean;               // dereference aliases during search
+  referrals?: "manual" | "automatic" | "ignore";
+  manageDsaIT?: boolean;
+  subentries?: boolean;
+}
+
+/** Subset of SavedSearch options passed to the runtime search call */
+export interface SearchRunOptions {
+  returningAttributes?: string;
+  countLimit?: number;
+  timeLimit?: number;
+  deref?: "never" | "base" | "searching" | "always";
 }
 
 // ─── Entry clipboard ──────────────────────────────────────────────────────────

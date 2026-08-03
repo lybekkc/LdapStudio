@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use ldap3::{
     controls::{ControlType, PagedResults, RawControl},
-    Ldap, LdapConnAsync, LdapConnSettings, Mod, Scope, SearchEntry,
+    DerefAliases, Ldap, LdapConnAsync, LdapConnSettings, Mod, Scope, SearchEntry, SearchOptions,
 };
 
 use crate::schema::{parse_attribute_type, parse_ldap_syntax, parse_matching_rule, parse_object_class};
@@ -488,6 +488,10 @@ impl LdapClient {
         scope: &str,
         page_size: i32,
         reset: bool,
+        attrs: Option<Vec<String>>,
+        size_limit: Option<i32>,
+        time_limit: Option<i32>,
+        deref: Option<&str>,
     ) -> Result<SearchPage, LdapError> {
         if reset {
             self.page_cookie = vec![];
@@ -516,10 +520,29 @@ impl LdapClient {
             cookie: self.page_cookie.clone(),
         });
 
+        // Build attribute list: use caller-provided list or default to all user+operational
+        let attr_list: Vec<&str> = match &attrs {
+            Some(list) if !list.is_empty() => list.iter().map(|s| s.as_str()).collect(),
+            _ => vec!["*", "+"],
+        };
+
+        // Build SearchOptions with limits and alias dereferencing
+        let deref_aliases = match deref.unwrap_or("never") {
+            "base"      => DerefAliases::Finding,
+            "searching" => DerefAliases::Searching,
+            "always"    => DerefAliases::Always,
+            _           => DerefAliases::Never,
+        };
+        let search_opts = SearchOptions::new()
+            .sizelimit(size_limit.unwrap_or(0))
+            .timelimit(time_limit.unwrap_or(0))
+            .deref(deref_aliases);
+
         // ldap3 search returns ldap3::SearchResult (tuple struct)
         let sr = self.ldap
             .with_controls(vec![pr_ctrl])
-            .search(base, ldap_scope, filter, vec!["*", "+"])
+            .with_search_options(search_opts)
+            .search(base, ldap_scope, filter, attr_list)
             .await?;
 
         // sr is ldap3::SearchResult(Vec<ResultEntry>, LdapResult)

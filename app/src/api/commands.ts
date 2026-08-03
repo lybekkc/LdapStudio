@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ChildrenPage, ConnectionProfile, LdapEntry, LdapMod,
-  LdifImportResult, NewEntry, SchemaInfo, SearchPage, ServerInfo, SiblingAnalysis,
+  LdifImportResult, NewEntry, SchemaInfo, SearchPage, SearchRunOptions, ServerInfo, SiblingAnalysis,
 } from "../types";
 
 export const connect    = (profile: ConnectionProfile) => invoke<ServerInfo>("connect", { profile });
@@ -16,10 +16,40 @@ export const setPageSize      = (size: number) => invoke<void>("set_page_size", 
 
 export const getSchema = () => invoke<SchemaInfo>("get_schema");
 
-export const searchPage     = (base: string, filter: string, scope: string, pageSize?: number) =>
-  invoke<SearchPage>("search_page", { base, filter, scope, pageSize });
-export const searchNextPage = (base: string, filter: string, scope: string, pageSize?: number) =>
-  invoke<SearchPage>("search_next_page", { base, filter, scope, pageSize });
+export const searchPage = (
+  base: string, filter: string, scope: string,
+  pageSize?: number, opts?: SearchRunOptions,
+) => {
+  const attrs = parseAttrs(opts?.returningAttributes);
+  return invoke<SearchPage>("search_page", {
+    base, filter, scope, pageSize,
+    attrs: attrs.length ? attrs : undefined,
+    sizeLimit: opts?.countLimit ?? undefined,
+    timeLimit: opts?.timeLimit ?? undefined,
+    deref: opts?.deref ?? undefined,
+  });
+};
+
+export const searchNextPage = (
+  base: string, filter: string, scope: string,
+  pageSize?: number, opts?: SearchRunOptions,
+) => {
+  const attrs = parseAttrs(opts?.returningAttributes);
+  return invoke<SearchPage>("search_next_page", {
+    base, filter, scope, pageSize,
+    attrs: attrs.length ? attrs : undefined,
+    sizeLimit: opts?.countLimit ?? undefined,
+    timeLimit: opts?.timeLimit ?? undefined,
+    deref: opts?.deref ?? undefined,
+  });
+};
+
+/** Parse a comma/space-separated attribute list string into an array. */
+function parseAttrs(raw?: string): string[] {
+  if (!raw?.trim()) return [];
+  return raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+}
+
 export const cancelSearch   = () => invoke<void>("cancel_search");
 
 export const saveProfile   = (profile: ConnectionProfile) => invoke<void>("save_profile", { profile });
