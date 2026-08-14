@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Modal, Tabs, Form, Input, Select, Switch, Button,
-  Space, Typography, Alert, message, Tooltip,
+  App as AntApp, Modal, Tabs, Form, Input, Select, Switch, Button,
+  Space, Typography, Alert, Tooltip,
 } from "antd";
 import {
   DeleteOutlined, ExclamationCircleOutlined, BulbOutlined,
@@ -99,6 +99,7 @@ interface OcEditorProps {
 }
 
 export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, enterpriseBase, onClose, onSaved }) => {
+  const { modal, message } = AntApp.useApp();
   const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<OcFormValues>();
   const [rawValue, setRawValue]   = useState("");
@@ -168,7 +169,7 @@ export const OcEditor: React.FC<OcEditorProps> = ({ open, schemaDn, initial, ent
 
   const handleDelete = () => {
     if (!initial?.raw) return;
-    Modal.confirm({
+    modal.confirm({
       title: `Delete objectClass "${initial.name}"?`,
       icon: <ExclamationCircleOutlined style={{ color: "#d4380d" }} />,
       content: "This will remove the class from the schema definition. Entries already using it will not be affected.",
@@ -343,6 +344,7 @@ const COMMON_SYNTAXES = [
 ];
 
 export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, enterpriseBase, onClose, onSaved }) => {
+  const { modal, message } = AntApp.useApp();
   const { schema, modifySchemaEntry } = useAppStore();
   const [form] = Form.useForm<AtFormValues>();
   const [rawValue, setRawValue]   = useState("");
@@ -410,7 +412,7 @@ export const AtEditor: React.FC<AtEditorProps> = ({ open, schemaDn, initial, ent
 
   const handleDelete = () => {
     if (!initial?.raw) return;
-    Modal.confirm({
+    modal.confirm({
       title: `Delete attribute "${initial.name}"?`,
       icon: <ExclamationCircleOutlined style={{ color: "#d4380d" }} />,
       content: "This will remove the attribute definition from the schema.",

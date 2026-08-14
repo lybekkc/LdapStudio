@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
   Modal, Form, Input, Select, Switch, Button, Space, Typography,
-  InputNumber, Alert, Tag, Checkbox, message, Tooltip,
+  InputNumber, Alert, Tag, Checkbox, Tooltip, App as AntApp,
 } from "antd";
 import {
   DownloadOutlined, TableOutlined, ArrowUpOutlined, ArrowDownOutlined,
@@ -182,6 +182,7 @@ const DEFAULT_PRIORITY_COLS = [
 ];
 
 const CsvExportDialog: React.FC<Props> = ({ open, onClose, entries: preloadedEntries }) => {
+  const { message } = AntApp.useApp();
   const { serverInfo, selectedDn, lastExportDir, setLastExportDir } = useAppStore();
   const [form] = Form.useForm<ExportForm>();
 

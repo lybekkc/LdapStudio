@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip, Switch, Modal, message } from "antd";
+import { Tabs, Table, Input, Tag, Spin, Empty, Descriptions, Drawer, Typography, Button, Tooltip, Switch, Modal, App as AntApp } from "antd";
 import { PlusOutlined, EditOutlined, ReloadOutlined, DownloadOutlined, CodeOutlined } from "@ant-design/icons";
 import { save as dialogSave } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -475,6 +475,7 @@ const AttributeTypesTab: React.FC<AtTabProps> = ({ filter, customOnly, enterpris
 // ─── Main Schema Browser ─────────────────────────────────────────────────────
 
 const SchemaBrowser: React.FC = () => {
+  const { message } = AntApp.useApp();
   const { schema, schemaLoading, loadSchema, reloadSchema, connected,
           activeProfile, writeUnlocked } = useAppStore();
   const [filter, setFilter] = useState("");

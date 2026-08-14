@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Drawer, Button, List, Tag, Typography, Space, Tooltip,
-  Popconfirm, Alert, Empty, Badge,
+  Popconfirm, Alert, Empty, Badge, App as AntApp,
 } from "antd";
 import {
   UndoOutlined, DeleteOutlined, ClearOutlined,
@@ -9,7 +9,6 @@ import {
   WarningOutlined, SwapOutlined, DatabaseOutlined, CloudSyncOutlined,
 } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
-import { message } from "antd";
 import type { UndoRecord } from "../types";
 
 const { Text } = Typography;
@@ -45,6 +44,7 @@ function shortDn(dn: string): string {
 }
 
 const UndoHistoryDrawer: React.FC<Props> = ({ open, onClose }) => {
+  const { message } = AntApp.useApp();
   const { undoHistory, performUndo, removeUndoRecord, clearUndoHistory, activeProfile } =
     useAppStore();
   const [undoing, setUndoing] = useState<string | null>(null);

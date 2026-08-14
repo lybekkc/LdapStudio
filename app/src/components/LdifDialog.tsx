@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Modal, Form, Input, Select, Switch, Button, Space, Typography,
-  Tabs, InputNumber, Alert, Tag, Divider, Upload, message,
+  Tabs, InputNumber, Alert, Tag, Divider, Upload, App as AntApp,
 } from "antd";
 import {
   DownloadOutlined, UploadOutlined, InboxOutlined,
@@ -37,6 +37,7 @@ interface ExportForm {
 }
 
 export const LdifExportDialog: React.FC<ExportProps> = ({ open, onClose, initialBaseDn }) => {
+  const { message } = AntApp.useApp();
   const { serverInfo, selectedDn, lastExportDir, setLastExportDir } = useAppStore();
   const [form] = Form.useForm<ExportForm>();
   const [exporting, setExporting] = useState(false);
@@ -195,6 +196,7 @@ interface ImportProps {
 }
 
 export const LdifImportDialog: React.FC<ImportProps> = ({ open, onClose, onImported }) => {
+  const { message } = AntApp.useApp();
   const { lastImportDir, setLastImportDir } = useAppStore();
   const [ldifContent,       setLdifContent]       = useState("");
   const [dryRun,            setDryRun]            = useState(true);

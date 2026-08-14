@@ -1,5 +1,5 @@
 import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Tree, Spin, Empty, Tag, Tooltip, Switch, message } from "antd";
+import { Tree, Spin, Empty, Tag, Tooltip, Switch, App as AntApp } from "antd";
 import type { TreeDataNode as DataNode } from "antd";
 import { DatabaseOutlined, FolderOutlined, UserOutlined, GroupOutlined, PlusCircleOutlined, TagsOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
@@ -56,6 +56,7 @@ function makeMoreNode(parentDn: string, count: number): DataNode {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const DitTree: React.FC = () => {
+  const { message } = AntApp.useApp();
   const { serverInfo, loadChildren, loadMoreChildren, selectEntry, selectedDn, pageSize,
           showOcBrowser, setShowOcBrowser, lastDeletedDn, activeProfile, writeUnlocked,
           clipboardEntry, ditTreeVersion, refreshDitTree } = useAppStore();

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   Table, Tag, Typography, Spin, Empty, Switch, Tooltip, Space,
-  Button, Input, AutoComplete, Modal, message, Select,
+  Button, Input, AutoComplete, App as AntApp, Select,
 } from "antd";
 import {
   CopyOutlined, CaretDownOutlined, CaretRightOutlined,
@@ -124,6 +124,7 @@ function computeOcMods(original: string[], edited: string[]): LdapMod[] {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const EntryDetails: React.FC = () => {
+  const { modal, message } = AntApp.useApp();
   const { selectedDn, selectedEntry, entryLoading, schema,
           modifyEntry, deleteEntry, activeProfile, writeUnlocked,
           copyEntryToClipboard, clipboardEntry, dateFormat,
@@ -334,7 +335,7 @@ const EntryDetails: React.FC = () => {
   saveEditsRef.current = saveEdits;
 
   const confirmDelete = () => {
-    Modal.confirm({
+    modal.confirm({
       title: "Delete entry?",
       content: <Text code style={{ fontSize: 12 }}>{selectedEntry.dn}</Text>,
       okText: "Delete",

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Drawer, Form, Input, AutoComplete, Button, Tag,
-  Typography, Space, Divider, message, Spin, Tooltip, Select,
+  Typography, Space, Divider, App as AntApp, Spin, Tooltip, Select,
 } from "antd";
 import {
   PlusOutlined, DeleteOutlined, ThunderboltOutlined,
@@ -30,6 +30,7 @@ interface Props {
 }
 
 const NewEntryDrawer: React.FC<Props> = ({ open, parentDn: initialParent, onClose, onCreated, prefill }) => {
+  const { message } = AntApp.useApp();
   const { schema, addEntry } = useAppStore();
 
   const [parentDn,    setParentDn]    = useState(initialParent);

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import {
-  Modal, Form, Input, Switch, Space, Typography, Alert, Divider,
+  Modal, Form, Input, Switch, Space, Typography, Alert, Divider, App as AntApp,
 } from "antd";
 import { SwapOutlined } from "@ant-design/icons";
 import { useAppStore } from "../store/appStore";
-import { message } from "antd";
 import DnPickerButton from "./DnPickerButton";
 
 const { Text } = Typography;
@@ -38,6 +37,7 @@ function parentDn(dn: string): string {
 }
 
 const RenameEntryModal: React.FC<Props> = ({ open, dn, onClose, onRenamed }) => {
+  const { message } = AntApp.useApp();
   const { renameEntry } = useAppStore();
   const [form] = Form.useForm<FormValues>();
   const [saving, setSaving] = useState(false);
