@@ -39,7 +39,9 @@ export function isConnectionError(e: unknown): boolean {
     msg.includes("timed out") ||
     msg.includes("timeout") ||
     msg.includes("ldap error 81") ||  // SERVER_DOWN
-    msg.includes("ldap error 91")     // CONNECT_ERROR
+    msg.includes("ldap error 91") ||   // CONNECT_ERROR
+    msg.includes("channel closed") ||  // ldap3: connection channel dropped
+    msg.includes("op send error")      // ldap3: send on closed connection
   );
 }
 let _store: Store | null = null;

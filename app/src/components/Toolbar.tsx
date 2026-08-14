@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Button, Space, Tag, Tooltip, Typography, Popover, Drawer, Form, InputNumber, Switch, Divider, Modal, Badge, Select } from "antd";
+import { Button, Space, Tag, Tooltip, Typography, Popover, Drawer, Form, InputNumber, Switch, Divider, Badge, Select, App as AntApp } from "antd";
 import {
   ApiOutlined, DisconnectOutlined, DatabaseOutlined,
   ApartmentOutlined, SearchOutlined, InfoCircleOutlined,
@@ -29,6 +29,7 @@ function profileColor(name: string): string {
 }
 
 const Toolbar: React.FC = () => {
+  const { modal } = AntApp.useApp();
   const {
     connected,
     serverInfo,
@@ -90,7 +91,7 @@ const Toolbar: React.FC = () => {
   }, [connected, activeProfile]);
 
   const handleUnlock = () => {
-    Modal.confirm({
+    modal.confirm({
       title: "Enable write access?",
       icon: <UnlockOutlined style={{ color: "#fa8c16" }} />,
       content: (

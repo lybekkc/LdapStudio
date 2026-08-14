@@ -7,7 +7,7 @@ import {
   CopyOutlined, CaretDownOutlined, CaretRightOutlined,
   EditOutlined, SaveOutlined, CloseOutlined, DeleteOutlined,
   PlusOutlined, BulbOutlined, BookOutlined, LockOutlined, SwapOutlined,
-  ScissorOutlined,
+  ScissorOutlined, ReloadOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useAppStore } from "../store/appStore";
@@ -126,7 +126,8 @@ function computeOcMods(original: string[], edited: string[]): LdapMod[] {
 const EntryDetails: React.FC = () => {
   const { selectedDn, selectedEntry, entryLoading, schema,
           modifyEntry, deleteEntry, activeProfile, writeUnlocked,
-          copyEntryToClipboard, clipboardEntry, dateFormat } = useAppStore();
+          copyEntryToClipboard, clipboardEntry, dateFormat,
+          selectEntry } = useAppStore();
   const isReadOnly = (activeProfile?.readOnly === true) && !writeUnlocked;
   const [showOperational, setShowOperational] = useState(false);
   const [ocExpanded, setOcExpanded]           = useState(true);
@@ -431,6 +432,9 @@ const EntryDetails: React.FC = () => {
           <Space size={4} style={{ flexShrink: 0 }}>
             {!isEditing ? (
               <>
+                <Tooltip title="Refresh entry">
+                  <Button size="small" icon={<ReloadOutlined />} onClick={() => selectEntry(selectedEntry.dn)} />
+                </Tooltip>
                 <Tooltip title={isReadOnly ? "Read-only — unlock in toolbar to edit" : "Edit entry"}>
                   <Button size="small" icon={<EditOutlined />} onClick={startEdit} disabled={isReadOnly}>Edit</Button>
                 </Tooltip>
