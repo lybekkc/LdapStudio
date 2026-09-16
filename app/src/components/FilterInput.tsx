@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   AutoComplete,
   Button,
@@ -17,6 +17,35 @@ const { Text } = Typography;
 
 // LDAP Generalized Time syntax OID
 const GENERALIZED_TIME_OID = "1.3.6.1.4.1.1466.115.121.1.24";
+
+/**
+ * Guards against a well-known antd/rc-select quirk: pressing Escape inside a
+ * combobox-mode AutoComplete (used here for free-typed LDAP filters) silently
+ * fires onChange("") to revert un-confirmed typed text, wiping out whatever
+ * the user had typed. Since Escape is the natural key to dismiss the
+ * suggestion dropdown while keeping the typed text, this made it very hard
+ * to build/edit filters.
+ *
+ * Fix: capture the Escape keydown on a wrapping element (capture phase runs
+ * before rc-select's own target-phase handler that triggers the reverting
+ * onChange), set a flag, and have the guarded onChange ignore the very next
+ * change call it causes.
+ */
+export function useEscapeGuard() {
+  const flag = useRef(false);
+  const onKeyDownCapture = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      flag.current = true;
+      // Safety net: if no onChange follows (e.g. dropdown was already closed), clear the flag.
+      setTimeout(() => { flag.current = false; }, 0);
+    }
+  }, []);
+  const guard = useCallback(<T,>(setter: (v: T) => void) => (v: T) => {
+    if (flag.current) { flag.current = false; return; }
+    setter(v);
+  }, []);
+  return { onKeyDownCapture, guard };
+}
 
 /** Returns true if the attribute uses GeneralizedTime syntax, using schema when available. */
 function isDateAttr(attrName: string, schema: SchemaInfo | null): boolean {
@@ -182,6 +211,8 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
   const [attr, setAttr] = useState("");
   const [op, setOp]   = useState("=");
   const [val, setVal] = useState("");
+  const attrEscapeGuard = useEscapeGuard();
+  const valEscapeGuard = useEscapeGuard();
 
   // Pre-populate from current filter when it's a simple single clause
   useEffect(() => {
@@ -277,7 +308,8 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
         <Space.Compact style={{ width: "100%" }}>
           <AutoComplete
             value={attr}
-            onChange={setAttr}
+            onChange={attrEscapeGuard.guard(setAttr)}
+            {...({ onKeyDownCapture: attrEscapeGuard.onKeyDownCapture } as any)}
             options={attrOptions}
             placeholder="Attribute"
             style={{ width: "42%" }}
@@ -313,7 +345,8 @@ export const FilterBuilder: React.FC<FilterBuilderProps> = ({ schema, currentFil
           ) : (
             <AutoComplete
               value={val}
-              onChange={setVal}
+              onChange={valEscapeGuard.guard(setVal)}
+              {...({ onKeyDownCapture: valEscapeGuard.onKeyDownCapture } as any)}
               options={valOptions}
               placeholder="Value"
               style={{ width: "32%" }}

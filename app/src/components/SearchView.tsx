@@ -14,7 +14,7 @@ import {
 import { v4 as uuidv4 } from "uuid";
 import { useAppStore } from "../store/appStore";
 import type { LdapEntry, SavedSearch, SearchRunOptions } from "../types";
-import { buildFilterOptions, FilterBuilder } from "./FilterInput";
+import { buildFilterOptions, FilterBuilder, useEscapeGuard } from "./FilterInput";
 import EntryDetails from "./EntryDetails";
 
 const { Text } = Typography;
@@ -346,6 +346,22 @@ const SaveSearchModal: React.FC<SaveSearchModalProps> = ({ open, initial, onSave
             filterOption={false}
             onChange={setFilterVal}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleOk(); } }}
+            {...({
+              onKeyDownCapture: (e: React.KeyboardEvent) => {
+                // Guard against antd AutoComplete's Escape-key quirk (see useEscapeGuard
+                // in FilterInput.tsx): here the field is Form-controlled, so restore the
+                // form value directly if Escape wiped it out.
+                if (e.key === "Escape") {
+                  const before = form.getFieldValue("filter");
+                  setTimeout(() => {
+                    if (before && !form.getFieldValue("filter")) {
+                      form.setFieldValue("filter", before);
+                      setFilterVal(before);
+                    }
+                  }, 0);
+                }
+              },
+            } as any)}
             placeholder="(objectClass=*)"
           />
         </Form.Item>
@@ -595,6 +611,7 @@ const SearchView: React.FC = () => {
 
   const [base, setBase]               = useState(selectedDn ?? serverInfo?.activeBaseDn ?? "");
   const [filter, setFilter]           = useState("(objectClass=*)");
+  const filterEscapeGuard             = useEscapeGuard();
   const [scope, setScope]             = useState("sub");
   const [pickerOpen, setPickerOpen]   = useState(false);
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -724,7 +741,8 @@ const SearchView: React.FC = () => {
             <Text style={{ fontSize: 11, color: "#888", whiteSpace: "nowrap" }}>Filter</Text>
             <AutoComplete
               value={filter}
-              onChange={setFilter}
+              onChange={filterEscapeGuard.guard(setFilter)}
+              {...({ onKeyDownCapture: filterEscapeGuard.onKeyDownCapture } as any)}
               options={buildFilterOptions(filter, schema)}
               style={{ flex: 1 }}
               size="small"
